@@ -1,0 +1,2 @@
+MCP_READY: yes
+MCP_SOURCE: MVP.md

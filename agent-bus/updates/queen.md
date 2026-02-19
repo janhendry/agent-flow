@@ -1,0 +1,4 @@
+- Initialisiert: `agent-bus/state.md`, `agent-bus/handoff.md`, `agent-bus/project/profile.md`.
+- Angelegt: Backlog-Dateien (`epics.md`, `tasks.md`, `decisions.md`) und Template-Ordner (`epics/_TEMPLATE`, `tasks/_TEMPLATE`).
+- Nächster Schritt: `/epic-create` ausführen.
+- Auswahl: A) `/epic-create` jetzt starten **(empfohlen)** · B) `/epic-create`-Ablauf kurz anzeigen · C) Abbrechen.
