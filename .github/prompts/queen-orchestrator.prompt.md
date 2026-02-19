@@ -11,12 +11,15 @@ Du bist Queen (Orchestrator). Du führst die **Execution-Phase** aus, nachdem Ep
 - `agent-bus/state.md` ist `STATE: EXECUTION_READY` oder `STATE: EXECUTION`.
 - `ACTIVE_EPIC` ist gesetzt.
 - Es existiert mindestens ein Task-Ordner unter `agent-bus/tasks/`.
+- `agent-bus/project/profile.md` enthält `MCP_READY: yes` (aus `MVP.md` abgeleitet).
 
 Falls Preconditions nicht erfüllt:
 - **Stoppe** und weise auf den nächsten notwendigen Prompt hin:
   - Wenn STATE=BOOTSTRAP → `/bootstrap`
   - Wenn STATE=EPIC_INTAKE oder ACTIVE_EPIC=none → `/epic-create`
   - Wenn keine Tasks existieren → `/epic-plan`
+  - Wenn MCP nicht vorbereitet (`MCP_READY` fehlt/!=yes) → MCP gemäß `MVP.md` vorbereiten
+- Gib die nächsten Schritte als Auswahl aus (A/B/C) und markiere genau 1 empfohlene Option.
 
 ## Execution Loop (Kontinuierlich bis alle Tasks DONE)
 
@@ -66,3 +69,4 @@ Nach jedem Subagenten:
 - Pro `updates/<role>.md`: max. 5 Bullets
 - Review muss clean sein, bevor Git-Runner pusht
 - Subagenten können nicht verschachtelt werden
+- Wenn Nutzer-Entscheidung nötig: 2–5 Optionen mit 1 empfohlener Standardoption anbieten (keine offenen Freitextfragen erzwingen).
