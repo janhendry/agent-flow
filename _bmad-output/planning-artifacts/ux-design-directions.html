@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhisperFlow — UX Design Directions</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  :root {
+    --bg: #0A0A0B;
+    --surface: #141415;
+    --surface-2: #1C1C1E;
+    --border: #2A2A2D;
+    --border-light: #3A3A3D;
+    --text: #FAFAFA;
+    --muted: #8A8A8E;
+    --accent: #6366F1;
+    --accent-dim: rgba(99,102,241,0.15);
+    --recording: #EF4444;
+    --recording-dim: rgba(239,68,68,0.15);
+    --success: #22C55E;
+    --success-dim: rgba(34,197,94,0.15);
+    --warning: #F59E0B;
+  }
+
+  body {
+    background: #050506;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── LAYOUT ── */
+  .page-header {
+    padding: 48px 64px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
+  .page-header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  .nav {
+    display: flex; gap: 4px;
+    padding: 16px 64px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: rgba(5,5,6,0.92);
+    backdrop-filter: blur(12px); z-index: 100;
+  }
+  .nav-btn {
+    padding: 6px 16px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13px; transition: all 0.15s;
+  }
+  .nav-btn:hover { background: var(--surface); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; }
+
+  .section { display: none; padding: 48px 64px; }
+  .section.active { display: block; }
+
+  .section-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .section-desc { color: var(--muted); margin-bottom: 40px; font-size: 14px; }
+
+  .directions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 24px;
+  }
+
+  .direction-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .direction-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .direction-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  .card-label {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-label h3 { font-size: 13px; font-weight: 600; }
+  .card-label span { font-size: 11px; color: var(--muted); }
+
+  .card-preview {
+    padding: 24px;
+    background: #080809;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 200px;
+  }
+
+  .card-desc {
+    padding: 16px 20px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── HUD COMPONENTS ── */
+
+  /* Direction A: Icon-only Pill — no text */
+  .hud-a {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 10px 18px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  /* mic icon */
+  .hud-a .mic-icon {
+    width: 18px; height: 18px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--recording); font-size: 15px;
+    animation: pulse-icon 1.8s ease-in-out infinite;
+  }
+  .hud-a .bars { display: flex; align-items: center; gap: 2px; }
+  .hud-a .bars span {
+    width: 3px; border-radius: 2px; background: #5A5A62;
+    animation: bar-bounce 0.6s ease-in-out infinite alternate;
+  }
+  .hud-a .bars span:nth-child(1) { height: 6px; animation-delay: 0s; }
+  .hud-a .bars span:nth-child(2) { height: 14px; animation-delay: 0.08s; }
+  .hud-a .bars span:nth-child(3) { height: 9px; animation-delay: 0.18s; }
+  .hud-a .bars span:nth-child(4) { height: 20px; animation-delay: 0.04s; }
+  .hud-a .bars span:nth-child(5) { height: 13px; animation-delay: 0.12s; }
+  .hud-a .bars span:nth-child(6) { height: 7px; animation-delay: 0.22s; }
+  .hud-a .bars span:nth-child(7) { height: 17px; animation-delay: 0.06s; }
+  .hud-a .bars span:nth-child(8) { height: 11px; animation-delay: 0.16s; }
+  .hud-a .bars span:nth-child(9) { height: 5px; animation-delay: 0.28s; }
+  .hud-a .bars span:nth-child(10) { height: 19px; animation-delay: 0.02s; }
+
+  /* Direction B: Waveform Card — icon + full waveform, no text */
+  .hud-b {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    width: 260px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+  }
+  .hud-b .header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .hud-b .header .rec-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #5A5A62; margin-left: auto;
+  }
+  .hud-b .waveform {
+    height: 44px;
+    display: flex; align-items: center; gap: 2px;
+    overflow: hidden;
+  }
+  .hud-b .waveform span {
+    flex: 1; border-radius: 2px; background: #5A5A62;
+    opacity: 0.75;
+    animation: wave-b 0.8s ease-in-out infinite alternate;
+  }
+  .hud-b .waveform span:nth-child(odd) { animation-direction: alternate-reverse; }
+  .hud-b .waveform span:nth-child(3n) { opacity: 1; }
+
+  /* Direction C: Ultra-minimal icon-only dot */
+  .hud-c {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 8px 14px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .hud-c .mini-bars { display: flex; align-items: center; gap: 2px; }
+  .hud-c .mini-bars span {
+    width: 2px; border-radius: 1px; background: #5A5A62; opacity: 0.8;
+    animation: bar-bounce 0.65s ease-in-out infinite alternate;
+  }
+  .hud-c .mini-bars span:nth-child(1) { height: 5px; animation-delay: 0s; }
+  .hud-c .mini-bars span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+  .hud-c .mini-bars span:nth-child(3) { height: 7px; animation-delay: 0.05s; }
+  .hud-c .mini-bars span:nth-child(4) { height: 13px; animation-delay: 0.15s; }
+  .hud-c .mini-bars span:nth-child(5) { height: 8px; animation-delay: 0.2s; }
+  .hud-c .mini-bars span:nth-child(6) { height: 11px; animation-delay: 0.08s; }
+
+  /* Direction D: Spotlight-style (wider, centered) */
+  .hud-d {
+    background: rgba(20,20,21,0.95);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: 320px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+    backdrop-filter: blur(20px);
+  }
+  .hud-d .state-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .hud-d .icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .hud-d .waveform-d {
+    height: 36px; display: flex; align-items: center; gap: 3px;
+  }
+  .hud-d .waveform-d span {
+    flex: 1; border-radius: 2px; background: #5A5A62; opacity: 0.7;
+    animation: wave-d 1s ease-in-out infinite alternate;
+  }
+  .hud-d .waveform-d span:nth-child(3n) { animation-delay: 0.2s; opacity: 1; }
+  .hud-d .waveform-d span:nth-child(3n+1) { animation-delay: 0.1s; }
+
+  /* SUCCESS STATE — icon only, no text */
+  .hud-success-a {
+    background: var(--surface);
+    border: 1px solid var(--success);
+    border-radius: 100px;
+    padding: 10px 20px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(34,197,94,0.15);
+    animation: success-glow 0.4s ease-out;
+  }
+  .hud-success-a .check-icon {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--success);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+    animation: check-pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  /* TRANSCRIBING STATE — dots only, no spinner */
+  .hud-transcribing {
+    background: var(--surface);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 100px;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  .thinking-dots { display: flex; gap: 6px; align-items: center; }
+  .thinking-dots span {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    animation: dot-pulse 1.2s ease-in-out infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  /* ── SETTINGS MOCKUPS ── */
+  .settings-mock {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .settings-titlebar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .titlebar-dots { display: flex; gap: 6px; }
+  .titlebar-dots span {
+    width: 12px; height: 12px; border-radius: 50%;
+  }
+  .dot-red { background: #FF5F57; }
+  .dot-yellow { background: #FEBC2E; }
+  .dot-green { background: #28C840; }
+  .titlebar-title { flex: 1; text-align: center; font-size: 13px; color: var(--muted); }
+
+  .settings-body { display: flex; }
+  .settings-sidebar {
+    width: 180px; border-right: 1px solid var(--border);
+    padding: 12px 8px;
+    flex-shrink: 0;
+  }
+  .sidebar-item {
+    padding: 8px 12px; border-radius: 7px; font-size: 13px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    color: var(--muted);
+  }
+  .sidebar-item.active { background: var(--accent-dim); color: var(--text); }
+  .sidebar-item .icon { width: 16px; text-align: center; font-size: 14px; }
+
+  .settings-content { flex: 1; padding: 20px 24px; }
+  .settings-section-title { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 12px; }
+
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row .label { font-size: 13px; }
+  .settings-row .desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .toggle {
+    width: 36px; height: 20px; border-radius: 10px;
+    position: relative; cursor: pointer; flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle.off { background: var(--border-light); }
+  .toggle::after {
+    content: ''; position: absolute;
+    width: 16px; height: 16px; border-radius: 50%; background: white;
+    top: 2px; transition: left 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .toggle.on::after { left: 18px; }
+  .toggle.off::after { left: 2px; }
+
+  .kbd-badge {
+    background: var(--surface-2); border: 1px solid var(--border-light);
+    border-radius: 5px; padding: 3px 8px; font-size: 11px;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    color: var(--muted);
+  }
+
+  .select-mock {
+    background: var(--surface-2); border: 1px solid var(--border-light);
+    border-radius: 6px; padding: 5px 10px; font-size: 12px;
+    color: var(--text); display: flex; align-items: center; gap: 6px;
+  }
+  .select-mock::after { content: '▾'; color: var(--muted); font-size: 10px; }
+
+  /* ── ONBOARDING ── */
+  .onboarding-mock {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .onboard-body { padding: 32px; }
+  .step-indicator { display: flex; gap: 6px; margin-bottom: 32px; }
+  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-light); }
+  .step-dot.done { background: var(--success); }
+  .step-dot.current { background: var(--accent); width: 20px; border-radius: 3px; }
+
+  .onboard-heading { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .onboard-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+
+  .check-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    margin-bottom: 8px; font-size: 13px;
+  }
+  .check-item .status { font-size: 16px; }
+  .check-item .name { flex: 1; }
+  .check-item .badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    font-weight: 600;
+  }
+  .badge-ok { background: var(--success-dim); color: var(--success); }
+  .badge-missing { background: rgba(239,68,68,0.12); color: var(--recording); }
+
+  .btn-primary {
+    background: var(--accent); color: white;
+    border: none; border-radius: 8px;
+    padding: 10px 24px; font-size: 14px; font-weight: 500;
+    cursor: pointer; margin-top: 24px; display: inline-block;
+  }
+  .btn-secondary {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 24px; font-size: 14px; font-weight: 500;
+    cursor: pointer; margin-top: 24px; display: inline-block; margin-left: 8px;
+  }
+
+  /* ── FOUR STATES COMPARISON ── */
+  .states-row {
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; align-items: center;
+  }
+  .state-item { text-align: center; }
+  .state-item .state-label { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes pulse-red {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { opacity: 0.7; box-shadow: 0 0 0 4px rgba(239,68,68,0); }
+  }
+  @keyframes pulse-icon {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.92); }
+  }
+  @keyframes success-glow {
+    from { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0px rgba(34,197,94,0); }
+    to { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(34,197,94,0.15); }
+  }
+  @keyframes check-pop {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
+  @keyframes dot-pulse {
+    0%, 60%, 100% { opacity: 0.2; transform: scale(0.8); }
+    30% { opacity: 1; transform: scale(1.2); }
+  }
+  @keyframes bar-bounce {
+    from { transform: scaleY(0.4); }
+    to { transform: scaleY(1); }
+  }
+  @keyframes wave-b {
+    from { height: 6px; }
+    to { height: 32px; }
+  }
+  @keyframes wave-d {
+    from { height: 4px; }
+    to { height: 28px; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes fade-dismiss {
+    0% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-4px); }
+  }
+
+  /* ── COMPARE TABLE ── */
+  .compare-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .compare-table th {
+    text-align: left; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--muted); padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table td {
+    padding: 12px; border-bottom: 1px solid var(--border);
+    font-size: 13px; vertical-align: top;
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+  .tag-green { background: var(--success-dim); color: var(--success); }
+  .tag-blue { background: var(--accent-dim); color: var(--accent); }
+  .tag-gray { background: var(--surface-2); color: var(--muted); }
+
+  .section-divider { height: 1px; background: var(--border); margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1>WhisperFlow — Design Directions</h1>
+  <p>Visuelle Explorations für HUD, Settings & Onboarding · Radix UI + Tailwind · Dark-first</p>
+</header>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="show('hud')">HUD States</button>
+  <button class="nav-btn" onclick="show('settings')">Settings</button>
+  <button class="nav-btn" onclick="show('onboarding')">Onboarding</button>
+  <button class="nav-btn" onclick="show('compare')">Vergleich</button>
+</nav>
+
+<!-- ═══════════════════════════════════════ HUD SECTION ═══════════════════════════════════════ -->
+<section id="hud" class="section active">
+  <h2 class="section-title">HUD Design Directions</h2>
+  <p class="section-desc">Das HUD ist das einzige UI, das Nutzer täglich sehen. Vier Richtungen — alle mit: Echtzeit-Pegel, State-Feedback, auto-dismiss nach Success.</p>
+
+  <!-- 4 STATES ROW -->
+  <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:20px;">Alle 4 States · Direction A — Pure Wave, kein Text</h3>
+  <div class="states-row" style="margin-bottom:48px;">
+    <div class="state-item">
+      <div class="hud-a">
+
+        <div class="bars">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="state-label">Recording</div>
+    </div>
+    <div class="state-item">
+      <div class="hud-transcribing">
+        <div class="thinking-dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="state-label">Transcribing</div>
+    </div>
+    <div class="state-item">
+      <div class="hud-success-a">
+        <div class="check-icon">✓</div>
+      </div>
+      <div class="state-label">Success · auto-dismiss 1.5s</div>
+    </div>
+    <div class="state-item">
+      <div style="background:var(--surface);border:1px solid rgba(239,68,68,0.4);border-radius:100px;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+        <div style="font-size:18px;color:var(--recording);">⚠</div>
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--recording);animation:pulse-red 1s ease-in-out infinite;"></div>
+      </div>
+      <div class="state-label">Error</div>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <div class="directions-grid">
+
+    <!-- Direction A -->
+    <div class="direction-card selected" id="card-a">
+      <div class="card-label">
+        <h3>Direction A — Floating Pill</h3>
+        <span>Empfohlen</span>
+      </div>
+      <div class="card-preview" style="flex-direction:column;gap:16px;">
+        <div class="hud-a">
+          <div class="bars">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+      <div class="card-desc">
+        Nur Bars — Farbe + Bewegung = State. Kein Icon, kein Text. Pure Waveform.
+      </div>
+    </div>
+
+    <!-- Direction B -->
+    <div class="direction-card" id="card-b">
+      <div class="card-label">
+        <h3>Direction B — Rounded Card</h3>
+        <span>Mehr Präsenz</span>
+      </div>
+      <div class="card-preview" style="flex-direction:column;gap:12px;">
+        <div class="hud-b">
+          <div class="header">
+            <div class="rec-dot"></div>
+            <div class="rec-dot" style="margin-left:auto;"></div>
+          </div>
+          <div class="waveform">
+            <span style="height:8px"></span><span style="height:20px"></span>
+            <span style="height:13px"></span><span style="height:30px"></span>
+            <span style="height:17px"></span><span style="height:26px"></span>
+            <span style="height:10px"></span><span style="height:34px"></span>
+            <span style="height:22px"></span><span style="height:15px"></span>
+            <span style="height:28px"></span><span style="height:9px"></span>
+            <span style="height:24px"></span><span style="height:19px"></span>
+            <span style="height:32px"></span><span style="height:12px"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card-desc">
+        Mic-Icon + pulsierender Dot + volle Wellenform — kein Text. Stärkeres Audio-Feedback für Meeting-Transkriptionen. Roter Dot signalisiert aktive Aufnahme.
+      </div>
+    </div>
+
+    <!-- Direction C -->
+    <div class="direction-card" id="card-c">
+      <div class="card-label">
+        <h3>Direction C — Corner Badge</h3>
+        <span>Minimal</span>
+      </div>
+      <div class="card-preview" style="flex-direction:column;gap:12px;align-items:flex-end;padding-right:48px;">
+        <div style="font-size:11px;color:var(--muted);align-self:center;margin-bottom:8px;">Ultra-minimal — Ecken-Position</div>
+        <div class="hud-c">
+          <div class="mic">&#127908;</div>
+          <div class="mini-bars">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+      <div class="card-desc">
+        Nur Mic-Icon + Bars. Kleinste Form, kaum sichtbar. Power-User die das HUD nur als Referenz brauchen. Risiko: zu wenig Feedback für ungewohnte Nutzer.
+      </div>
+    </div>
+
+    <!-- Direction D -->
+    <div class="direction-card" id="card-d">
+      <div class="card-label">
+        <h3>Direction D — Spotlight Modal</h3>
+        <span>Maximale Klarheit</span>
+      </div>
+      <div class="card-preview">
+        <div class="hud-d">
+          <div class="state-row">
+            <div class="icon">🎙</div>
+            <div style="flex:1;">
+              <div class="waveform-d">
+                <span style="height:8px"></span><span style="height:22px"></span>
+                <span style="height:14px"></span><span style="height:28px"></span>
+                <span style="height:10px"></span><span style="height:24px"></span>
+                <span style="height:18px"></span><span style="height:30px"></span>
+                <span style="height:12px"></span><span style="height:26px"></span>
+              </div>
+            </div>
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--recording);animation:pulse-red 1s ease-in-out infinite;flex-shrink:0;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-desc">
+        Größeres Icon + breite Wellenform + pulsierender Dot — kein Text. Mehr Fläche bedeutet mehr Waveform-Amplitide sichtbar. Onboarding-tauglich da das erste Erlebnis mehr Raum beanspruchen darf.
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:32px;padding:20px;background:var(--surface);border:1px solid var(--accent);border-radius:12px;">
+    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:8px;">Empfehlung</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.7;">
+      <strong style="color:var(--text);">Direction A (Floating Pill)</strong> als Default — Icon + Waveform, kein Text, maximale Eleganz.
+      <strong style="color:var(--text);">Direction B (Rounded Card)</strong> als Alternative für stärkeres Audio-Feedback.
+      Klicke eine Karte an um sie auszuwählen.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ SETTINGS SECTION ═══════════════════════════════════════ -->
+<section id="settings" class="section">
+  <h2 class="section-title">Settings Window</h2>
+  <p class="section-desc">Dark-first, Sidebar-Navigation, macOS-native Titlebar. Radix UI Primitives + Tailwind.</p>
+
+  <div class="settings-mock">
+    <div class="settings-titlebar">
+      <div class="titlebar-dots">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+      </div>
+      <div class="titlebar-title">WhisperFlow Settings</div>
+    </div>
+    <div class="settings-body">
+      <div class="settings-sidebar">
+        <div class="sidebar-item active"><span class="icon">🎙</span> General</div>
+        <div class="sidebar-item"><span class="icon">⌨</span> Shortcuts</div>
+        <div class="sidebar-item"><span class="icon">🔑</span> API Key</div>
+        <div class="sidebar-item"><span class="icon">🎛</span> Audio</div>
+        <div class="sidebar-item"><span class="icon">🖥</span> Display</div>
+        <div class="sidebar-item"><span class="icon">ℹ</span> About</div>
+      </div>
+      <div class="settings-content">
+        <div class="settings-section-title">Recording</div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Recording Mode</div>
+            <div class="desc">Toggle: einmal drücken Start, einmal Stopp</div>
+          </div>
+          <div class="select-mock">Toggle</div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Recording Shortcut</div>
+            <div class="desc">Globaler Shortcut, funktioniert in jeder App</div>
+          </div>
+          <div class="kbd-badge">⌘⇧Space</div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Audio Source</div>
+            <div class="desc">Mikrofon, System-Audio oder beides</div>
+          </div>
+          <div class="select-mock">Microphone Only</div>
+        </div>
+
+        <div style="height:20px;"></div>
+        <div class="settings-section-title">HUD & Feedback</div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">HUD Position</div>
+            <div class="desc">Wo das Recording-Overlay erscheint</div>
+          </div>
+          <div class="select-mock">Bottom Center</div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Show Audio Level</div>
+            <div class="desc">Echtzeit-Pegel im HUD anzeigen</div>
+          </div>
+          <div class="toggle on"></div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Sound Feedback</div>
+            <div class="desc">Ton bei Start und Ende der Aufnahme</div>
+          </div>
+          <div class="toggle off"></div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">Auto-dismiss Success</div>
+            <div class="desc">HUD verschwindet automatisch nach 1.5s</div>
+          </div>
+          <div class="toggle on"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ ONBOARDING SECTION ═══════════════════════════════════════ -->
+<section id="onboarding" class="section">
+  <h2 class="section-title">Onboarding Flow</h2>
+  <p class="section-desc">First-run: API-Key-Gate + FFmpeg-Check + Test-Recording. Progressive Disclosure — Aha-Moment so früh wie möglich.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+
+    <!-- Step 1: Welcome -->
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Step 1 von 4 — Welcome</div>
+      <div class="onboarding-mock">
+        <div class="settings-titlebar">
+          <div class="titlebar-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+          <div class="titlebar-title">WhisperFlow Setup</div>
+        </div>
+        <div class="onboard-body">
+          <div class="step-indicator">
+            <div class="step-dot current"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+          </div>
+          <div class="onboard-heading">Voice → Text.<br>Überall.</div>
+          <div class="onboard-sub">WhisperFlow läuft im Hintergrund. Ein Shortcut — und deine Sprache landet in der Zwischenablage. Kein Kontextwechsel, kein Upload.</div>
+          <button class="btn-primary">Los geht's →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: API Key -->
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Step 2 von 4 — API Key</div>
+      <div class="onboarding-mock">
+        <div class="settings-titlebar">
+          <div class="titlebar-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+          <div class="titlebar-title">WhisperFlow Setup</div>
+        </div>
+        <div class="onboard-body">
+          <div class="step-indicator">
+            <div class="step-dot done"></div>
+            <div class="step-dot current"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+          </div>
+          <div class="onboard-heading">OpenAI API Key</div>
+          <div class="onboard-sub">WhisperFlow nutzt die Whisper API für Transkription. Du brauchst einen API Key von OpenAI.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-bottom:8px;">sk-••••••••••••••••••••••</div>
+          <div style="font-size:11px;color:var(--muted);">API Key wird lokal gespeichert, nie übertragen.</div>
+          <button class="btn-primary">Key validieren →</button>
+          <button class="btn-secondary">Wo find' ich den Key?</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Dependency Check -->
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Step 3 von 4 — System Check</div>
+      <div class="onboarding-mock">
+        <div class="settings-titlebar">
+          <div class="titlebar-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+          <div class="titlebar-title">WhisperFlow Setup</div>
+        </div>
+        <div class="onboard-body">
+          <div class="step-indicator">
+            <div class="step-dot done"></div>
+            <div class="step-dot done"></div>
+            <div class="step-dot current"></div>
+            <div class="step-dot"></div>
+          </div>
+          <div class="onboard-heading">Alles bereit?</div>
+          <div class="onboard-sub">Kurze Prüfung deines Systems.</div>
+          <div class="check-item"><span class="status">✅</span><span class="name">Mikrofon-Zugriff</span><span class="badge badge-ok">OK</span></div>
+          <div class="check-item"><span class="status">✅</span><span class="name">FFmpeg</span><span class="badge badge-ok">v6.1 gefunden</span></div>
+          <div class="check-item"><span class="status">✅</span><span class="name">Whisper API</span><span class="badge badge-ok">Verbunden</span></div>
+          <button class="btn-primary">Test-Aufnahme starten →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Test Recording -->
+    <div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Step 4 von 4 — Aha Moment</div>
+      <div class="onboarding-mock">
+        <div class="settings-titlebar">
+          <div class="titlebar-dots"><span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span></div>
+          <div class="titlebar-title">WhisperFlow Setup</div>
+        </div>
+        <div class="onboard-body">
+          <div class="step-indicator">
+            <div class="step-dot done"></div>
+            <div class="step-dot done"></div>
+            <div class="step-dot done"></div>
+            <div class="step-dot current"></div>
+          </div>
+          <div class="onboard-heading">Drück ⌘⇧Space<br>und sprich.</div>
+          <div class="onboard-sub">Sag irgendetwas. WhisperFlow transkribiert es und kopiert es in die Zwischenablage. Dann weißt du wie es sich anfühlt.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <div style="font-size:11px;color:var(--muted);">Warte auf Shortcut…</div>
+            <div style="margin-left:auto;" class="kbd-badge">⌘⇧Space</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);">Du kannst den Shortcut später in den Einstellungen ändern.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ COMPARE SECTION ═══════════════════════════════════════ -->
+<section id="compare" class="section">
+  <h2 class="section-title">HUD Direction Vergleich</h2>
+  <p class="section-desc">Alle vier Richtungen im Überblick — Vor- und Nachteile.</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Direction</th>
+        <th>Größe</th>
+        <th>Pegel-Sichtbarkeit</th>
+        <th>Invasivität</th>
+        <th>Passt zu</th>
+        <th>Empfehlung</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>A — Floating Pill</strong></td>
+        <td>280 × 46px</td>
+        <td>Gut (Bars)</td>
+        <td>Niedrig</td>
+        <td>Kurze Diktate, Raycast-User</td>
+        <td><span class="tag tag-green">⭐ Empfohlen</span></td>
+      </tr>
+      <tr>
+        <td><strong>B — Rounded Card</strong></td>
+        <td>280 × 96px</td>
+        <td>Sehr gut (Wellenform)</td>
+        <td>Mittel</td>
+        <td>Meeting-Transkriptionen, mehr Feedback</td>
+        <td><span class="tag tag-blue">Alternative</span></td>
+      </tr>
+      <tr>
+        <td><strong>C — Corner Badge</strong></td>
+        <td>200 × 48px</td>
+        <td>Minimal (Mini-Bars)</td>
+        <td>Sehr niedrig</td>
+        <td>Power-User, minimalistische Präferenz</td>
+        <td><span class="tag tag-gray">Optional</span></td>
+      </tr>
+      <tr>
+        <td><strong>D — Spotlight Modal</strong></td>
+        <td>320 × 120px</td>
+        <td>Sehr gut (Wellenform)</td>
+        <td>Hoch</td>
+        <td>Onboarding, erste Nutzung</td>
+        <td><span class="tag tag-gray">Onboarding only</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:32px;padding:24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">
+    <div style="font-size:14px;font-weight:600;margin-bottom:12px;">Design-Entscheidung</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+      <strong style="color:var(--text);">MVP Default: Direction A (Floating Pill)</strong><br>
+      Kompakteste Form, beste Balance aus Sichtbarkeit und Nicht-Invasivität.<br>
+      <br>
+      <strong style="color:var(--text);">Konfigurierbar:</strong> HUD-Position (oben/unten/Ecken) in Settings.<br>
+      <strong style="color:var(--text);">Onboarding:</strong> Direction D für erste Test-Aufnahme — mehr Kontext hilft beim ersten Mal.<br>
+      <strong style="color:var(--text);">Tier 2:</strong> Direction B als wählbare Alternative für Meeting-Nutzer.
+    </div>
+  </div>
+</section>
+
+<script>
+  function show(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // Card selection
+  document.querySelectorAll('.direction-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.direction-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
+</script>
+
+</body>
+</html>
