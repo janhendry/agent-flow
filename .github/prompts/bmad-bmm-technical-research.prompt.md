@@ -1,7 +1,7 @@
 ---
 description: 'Technical research'
 agent: 'agent'
-tools: ['read', 'edit', 'search', 'execute']
+tools: ['read', 'edit', 'search', 'execute', 'web', 'agent', 'todo']
 ---
 
 1. Load {project-root}/_bmad/bmm/config.yaml and store ALL fields as session variables
