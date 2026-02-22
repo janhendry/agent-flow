@@ -1,0 +1,101 @@
+# generated: 2026-02-22
+# project: agent-flow
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-02-22
+project: agent-flow
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ── Epic 1: App Foundation & System Tray (MVP) ──
+  epic-1: in-progress
+  1-1-electron-forge-projekt-scaffolding-basis-dependencies: ready-for-dev
+  1-2-shared-types-ipc-foundation-nanostore-setup: backlog
+  1-3-window-manager-design-system-foundation: backlog
+  1-4-system-tray-kontextmenu-ffmpeg-verification: backlog
+  epic-1-retrospective: optional
+
+  # ── Epic 2: Core Recording & Transcription Pipeline (MVP) ──
+  epic-2: backlog
+  2-1-recording-state-machine-audio-device-detection: backlog
+  2-2-ffmpeg-audio-recording-encoding-pipeline: backlog
+  2-3-api-key-storage-whisper-api-integration: backlog
+  2-4-global-shortcuts-clipboard-output-end-to-end-flow: backlog
+  epic-2-retrospective: optional
+
+  # ── Epic 3: HUD Feedback System (MVP) ──
+  epic-3: backlog
+  3-1-hud-browserwindow-floating-pill-layout: backlog
+  3-2-audio-level-bars-echtzeit-pegel-visualisierung: backlog
+  3-3-transcribing-success-error-hud-states: backlog
+  3-4-snackbar-benachrichtigungen: backlog
+  epic-3-retrospective: optional
+
+  # ── Epic 4: Onboarding & First-Run Experience (MVP) ──
+  epic-4: backlog
+  4-1-first-run-detection-welcome-screen: backlog
+  4-2-api-key-gate-validation: backlog
+  4-3-macos-permissions-test-recording: backlog
+  epic-4-retrospective: optional
+
+  # ── Epic 5: Settings & Customization (MVP) ──
+  epic-5: backlog
+  5-1-settings-window-shell-tab-navigation: backlog
+  5-2-general-shortcuts-tabs: backlog
+  5-3-api-key-audio-display-tabs: backlog
+  5-4-about-tab-auto-update-temp-file-cleanup: backlog
+  epic-5-retrospective: optional
+
+  # ── Epic 6: Profile System & Advanced Transcription (Tier 2) ──
+  epic-6: backlog
+  6-1-profile-crud-default-profil: backlog
+  6-2-system-prompts-glossare-llm-integration: backlog
+  6-3-profil-wechsel-overlay-push-to-talk: backlog
+  6-4-shortcut-recorder-ui: backlog
+  epic-6-retrospective: optional
+
+  # ── Epic 7: System Audio & Dual Recording (Tier 2) ──
+  epic-7: backlog
+  7-1-blackhole-detection-setup-guidance: backlog
+  7-2-system-audio-dual-recording-implementation: backlog
+  epic-7-retrospective: optional
+
+  # ── Epic 8: History & Transcript Management (Tier 2) ──
+  epic-8: backlog
+  8-1-persistente-transcript-speicherung: backlog
+  8-2-history-overlay-mit-fuzzy-search: backlog
+  8-3-transcript-overlay-optional: backlog
+  epic-8-retrospective: optional
