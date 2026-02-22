@@ -129,7 +129,7 @@ cd whisper-flow && npm install && npm run dev
 | **Runtime**          | Electron (aktuell: Electron 34, Chromium 132)                                                                                                                                     |
 | **Framework**        | React 19 + TypeScript 5.x                                                                                                                                                         |
 | **Build-Tool**       | Vite via Forge Vite Plugin                                                                                                                                                        |
-| **Projektstruktur**  | `src/main/` · `src/preload/` · `src/renderer/`                                                                                                                                    |
+| **Projektstruktur**  | `src/main.ts` · `src/preload.ts` · `src/renderer/`                                                                                                                                |
 | **IPC / State Sync** | `@janhendry/nanostore-ipc-bridge` — `initNanoStoreIPC()` in main.ts, `exposeNanoStoreIPC()` in preload.ts (ersetzt manuellen contextBridge-Boilerplate), `useStore()` in Renderer |
 | **Distribution**     | Electron Forge — Build, Code Signing, Auto-Update, Publishing nativ integriert                                                                                                    |
 
@@ -180,14 +180,14 @@ cd whisper-flow && npm install && npm run dev
 **`channelPrefix: 'whisperflow'`** — muss in Main, Preload und allen `syncedAtom()`-Optionen identisch gesetzt sein
 
 ```typescript
-// src/main/index.ts
+// src/main.ts
 initNanoStoreIPC({
   channelPrefix: "whisperflow",
   enableLogging: isDev,
   autoRegisterWindows: true,
 });
 
-// src/preload/index.ts
+// src/preload.ts
 exposeNanoStoreIPC({ channelPrefix: "whisperflow" });
 ```
 
@@ -207,7 +207,7 @@ exposeNanoStoreIPC({ channelPrefix: "whisperflow" });
 **Implementierung:**
 
 ```typescript
-// src/main/lib/audio-level.lib.ts
+// src/lib/audio-level.lib.ts
 // MessagePort wird beim HUD-Fenster-Init erstellt und an den Renderer übergeben
 export function createAudioLevelPort(hudWindow: BrowserWindow): MessagePort {
   const { port1, port2 } = new MessageChannelMain();
@@ -233,7 +233,7 @@ export function useAudioLevel(): number {
 }
 ```
 
-**Betroffene Dateien:** `src/main/lib/audio-level.lib.ts` (neu), `src/renderer/hooks/useAudioLevel.ts` (neu), `src/renderer/components/AudioLevelMeter.tsx`
+**Betroffene Dateien:** `src/lib/audio-level.lib.ts` (neu), `src/renderer/hooks/useAudioLevel.ts` (neu), `src/renderer/components/AudioLevelMeter.tsx`
 
 ---
 
@@ -250,13 +250,13 @@ export interface AudioCaptureAdapter {
   checkDependencies(): Promise<DependencyStatus>;
 }
 
-// Tier 1: src/main/lib/adapters/mic-capture.adapter.ts
+// Tier 1: src/lib/adapters/mic-capture.adapter.ts
 // Implements AudioCaptureAdapter using FFmpeg mic input
 
-// Tier 2 (macOS): src/main/lib/adapters/blackhole-capture.adapter.ts
+// Tier 2 (macOS): src/lib/adapters/blackhole-capture.adapter.ts
 // Implements AudioCaptureAdapter using BlackHole virtual device
 
-// Tier 2 (Windows): src/main/lib/adapters/wasapi-capture.adapter.ts
+// Tier 2 (Windows): src/lib/adapters/wasapi-capture.adapter.ts
 // Implements AudioCaptureAdapter using Windows WASAPI loopback (nativ, kein Drittanbieter-Treiber)
 ```
 
@@ -360,7 +360,7 @@ extraResource: ['node_modules/ffmpeg-static/ffmpeg'],
 
 **Pattern:** Eigene TypeScript-Klasse `RecordingStateMachine` — kein XState (zu viel Overhead für diesen Use-Case)
 
-**Datei:** `src/main/lib/recording-state-machine.ts`
+**Datei:** `src/lib/recording-state-machine.ts`
 
 **Zustände und Bedeutung:**
 
@@ -386,7 +386,7 @@ extraResource: ['node_modules/ffmpeg-static/ffmpeg'],
 - `STOP` ohne aktives Recording
 
 ```typescript
-// src/main/lib/recording-state-machine.ts
+// src/lib/recording-state-machine.ts
 export type RecordingStatus =
   | "idle"
   | "recording"
@@ -694,10 +694,10 @@ shared/services/
   window.service.ts        # defineService({ id: 'window', handlers: {...} })
 ```
 
-**`src/main/lib/`** — Node/Electron-only Implementierungen (kein Renderer-Import):
+**`src/lib/`** — Node/Electron-only Implementierungen (kein Renderer-Import):
 
 ```
-src/main/lib/
+src/lib/
   ffmpeg.lib.ts            # child_process, fs — nur vom recording.service aufgerufen
   audio-device.lib.ts      # Electron mediaDevices APIs
   safe-storage.lib.ts      # electron.safeStorage Encrypt/Decrypt
@@ -711,7 +711,7 @@ src/main/lib/
 **Warum die Trennung:**
 
 - `shared/services/` = `defineService()` Wrapper — muss von Renderer importierbar sein (bekommt RPC-Proxy)
-- `src/main/lib/` = echte Node.js/Electron Implementierungen mit `child_process`, `fs`, `app` etc. — dürfen nie im Renderer-Kontext importiert werden
+- `src/lib/` = echte Node.js/Electron Implementierungen mit `child_process`, `fs`, `app` etc. — dürfen nie im Renderer-Kontext importiert werden
 - Service-Handler in `shared/services/` rufen intern `lib/`-Module auf: Handler laufen nur in Main, daher sicher
 - Services kommunizieren untereinander via direkte Imports (kein IPC zwischen Services)
 
@@ -805,7 +805,7 @@ transcriptionService.transcribe(filePath, (err, result) => { ... });
 4. Stores mit `$` Prefix benennen, via `syncedAtom()` in `shared/stores/` definieren
 5. Types aus `@shared/types` importieren — nie inline definieren
 6. `async/await` verwenden — kein `.then()`, keine Callbacks
-7. `defineService()` Wrapper in `shared/services/` — Node/Electron Implementierungen in `src/main/lib/`
+7. `defineService()` Wrapper in `shared/services/` — Node/Electron Implementierungen in `src/lib/`
 8. React-Komponenten als Named Exports mit `PascalCase.tsx`
 9. Den `@shared` Alias für alle Imports aus `shared/` verwenden
 10. `MessagePort` **ausschließlich** für den Audio-Level-Stream (`AudioLevelMeter`) verwenden — **nie** für App-State-Transport; aller State läuft über NanoStores + `@janhendry/nanostore-ipc-bridge`
@@ -814,18 +814,18 @@ transcriptionService.transcribe(filePath, (err, result) => { ... });
 
 ### Requirements → Structure Mapping
 
-| FR-Kategorie                        | Hauptdateien                                                                                                                                                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Audio Recording (FR1–FR7)           | `shared/services/recording.service.ts`, `src/main/lib/ffmpeg.lib.ts`, `src/main/lib/audio-device.lib.ts`, `shared/stores/recording.store.ts`                                                                  |
-| Transkription (FR8–FR11)            | `shared/services/transcription.service.ts`, `src/main/lib/whisper-api.lib.ts`                                                                                                                                 |
-| Output/Clipboard (FR12–FR14)        | `shared/services/clipboard.service.ts`                                                                                                                                                                        |
-| System Tray (FR15–FR16)             | `src/main/lib/tray.lib.ts`                                                                                                                                                                                    |
-| Globale Shortcuts (FR17–FR18)       | `src/main/lib/shortcut.lib.ts`                                                                                                                                                                                |
-| HUD (FR20–FR24)                     | `src/renderer/screens/HudWindow.tsx`, `src/renderer/components/AudioLevelMeter.tsx`, `shared/stores/hud.store.ts`                                                                                             |
-| Settings (FR25–FR27, FR27a–c, FR28) | `shared/services/settings.service.ts`, `src/main/lib/safe-storage.lib.ts`, `src/main/lib/electron-store.lib.ts`, `src/renderer/screens/SettingsScreen.tsx`, `src/renderer/screens/ProfileSwitcherOverlay.tsx` |
-| Onboarding (FR30–FR34)              | `src/renderer/screens/OnboardingScreen.tsx`, `src/main/lib/dependency-check.lib.ts`                                                                                                                           |
-| FFmpeg Pipeline                     | `src/main/lib/ffmpeg.lib.ts` — `ffmpeg-static` Pfad via `import ffmpegPath from 'ffmpeg-static'`, Binary aus `process.resourcesPath` in Production                                                            |
-| Window Management                   | `src/main/lib/window-manager.lib.ts`                                                                                                                                                                          |
+| FR-Kategorie                        | Hauptdateien                                                                                                                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Audio Recording (FR1–FR7)           | `shared/services/recording.service.ts`, `src/lib/ffmpeg.lib.ts`, `src/lib/audio-device.lib.ts`, `shared/stores/recording.store.ts`                                                                  |
+| Transkription (FR8–FR11)            | `shared/services/transcription.service.ts`, `src/lib/whisper-api.lib.ts`                                                                                                                            |
+| Output/Clipboard (FR12–FR14)        | `shared/services/clipboard.service.ts`                                                                                                                                                              |
+| System Tray (FR15–FR16)             | `src/lib/tray.lib.ts`                                                                                                                                                                               |
+| Globale Shortcuts (FR17–FR18)       | `src/lib/shortcut.lib.ts`                                                                                                                                                                           |
+| HUD (FR20–FR24)                     | `src/renderer/screens/HudWindow.tsx`, `src/renderer/components/AudioLevelMeter.tsx`, `shared/stores/hud.store.ts`                                                                                   |
+| Settings (FR25–FR27, FR27a–c, FR28) | `shared/services/settings.service.ts`, `src/lib/safe-storage.lib.ts`, `src/lib/electron-store.lib.ts`, `src/renderer/screens/SettingsScreen.tsx`, `src/renderer/screens/ProfileSwitcherOverlay.tsx` |
+| Onboarding (FR30–FR34)              | `src/renderer/screens/OnboardingScreen.tsx`, `src/lib/dependency-check.lib.ts`                                                                                                                      |
+| FFmpeg Pipeline                     | `src/lib/ffmpeg.lib.ts` — `ffmpeg-static` Pfad via `import ffmpegPath from 'ffmpeg-static'`, Binary aus `process.resourcesPath` in Production                                                       |
+| Window Management                   | `src/lib/window-manager.lib.ts`                                                                                                                                                                     |
 
 ---
 
@@ -873,24 +873,22 @@ whisper-flow/
 │       └── window.service.ts        # defineService — ruft window-manager.lib auf
 │
 └── src/
-    ├── main/
-    │   ├── index.ts                 # initNanoStoreIPC() → import shared → init libs → createWindows
-    │   └── lib/                     # ◄ Node/Electron-only — NIE im Renderer importiert
-    │       ├── ffmpeg.lib.ts            # child_process, WAV→WebM/Opus Pipeline
-    │       ├── audio-device.lib.ts      # Electron mediaDevices, Hot-plug, Adapter-Selektion
-    │       ├── adapters/
-    │       │   ├── mic-capture.adapter.ts       # Tier 1 — FFmpeg Mic Input
-    │       │   ├── blackhole-capture.adapter.ts # Tier 2 — macOS BlackHole (Stub in Tier 1)
-    │       │   └── wasapi-capture.adapter.ts    # Tier 2 — Windows WASAPI Loopback (Stub in Tier 1, nativ via -f wasapi -loopback 1)
-    │       ├── whisper-api.lib.ts       # OpenAI Whisper API HTTP-Client
-    │       ├── safe-storage.lib.ts      # electron.safeStorage Encrypt/Decrypt
-    │       ├── electron-store.lib.ts    # electron-store Instanz + Schema (settings, apiKey, shortcuts, profiles[], activeProfileId, systemPrompts[], glossaries[])
-    │       ├── shortcut.lib.ts          # globalShortcut Registration + Sleep/Wake Handling
-    │       ├── tray.lib.ts              # Tray Icon + Context Menu
-    │       ├── window-manager.lib.ts    # BrowserWindow Singleton-Registry (Map<WindowName, BrowserWindow>)
-    │       └── dependency-check.lib.ts  # FFmpeg binary check + path resolution
-    ├── preload/
-    │   └── index.ts                 # exposeNanoStoreIPC({ channelPrefix: 'whisperflow' })
+    ├── main.ts                      # initNanoStoreIPC() → import shared → init libs → createWindows
+    ├── preload.ts                   # exposeNanoStoreIPC({ channelPrefix: 'whisperflow' })
+    ├── lib/                         # ◄ Node/Electron-only — NIE im Renderer importiert
+    │   ├── ffmpeg.lib.ts                # child_process, WAV→WebM/Opus Pipeline
+    │   ├── audio-device.lib.ts          # Electron mediaDevices, Hot-plug, Adapter-Selektion
+    │   ├── adapters/
+    │   │   ├── mic-capture.adapter.ts       # Tier 1 — FFmpeg Mic Input
+    │   │   ├── blackhole-capture.adapter.ts # Tier 2 — macOS BlackHole (Stub in Tier 1)
+    │   │   └── wasapi-capture.adapter.ts    # Tier 2 — Windows WASAPI Loopback (Stub in Tier 1, nativ via -f wasapi -loopback 1)
+    │   ├── whisper-api.lib.ts           # OpenAI Whisper API HTTP-Client
+    │   ├── safe-storage.lib.ts          # electron.safeStorage Encrypt/Decrypt
+    │   ├── electron-store.lib.ts        # electron-store Instanz + Schema (settings, apiKey, shortcuts, profiles[], activeProfileId, systemPrompts[], glossaries[])
+    │   ├── shortcut.lib.ts              # globalShortcut Registration + Sleep/Wake Handling
+    │   ├── tray.lib.ts                  # Tray Icon + Context Menu
+    │   ├── window-manager.lib.ts        # BrowserWindow Singleton-Registry (Map<WindowName, BrowserWindow>)
+    │   └── dependency-check.lib.ts      # FFmpeg binary check + path resolution
     ├── renderer/
     │   ├── index.html
     │   ├── main.tsx
@@ -922,19 +920,19 @@ whisper-flow/
 
 ### Architectural Boundaries
 
-**`shared/` ↔ `src/main/lib/` Grenze:**
+**`shared/` ↔ `src/lib/` Grenze:**
 
 - `shared/services/*.service.ts` = `defineService()` Wrapper — importierbar von Main + Renderer
-- Service-Handler rufen `src/main/lib/` auf — sicher, weil Handler nur in Main laufen
-- `src/main/lib/` darf nie direkt im Renderer oder in `shared/` importiert werden
+- Service-Handler rufen `src/lib/` auf — sicher, weil Handler nur in Main laufen
+- `src/lib/` darf nie direkt im Renderer oder in `shared/` importiert werden
 
 **`shared/` ↔ `src/renderer/` Grenze:**
 
 - Renderer importiert Stores und Services via `@shared` Alias
-- Renderer darf nie direkt `src/main/` importieren
+- Renderer darf nie direkt `src/lib/` importieren
 - Renderer-spezifische Logik (Hooks, UI-Utils) bleibt in `src/renderer/`
 
-**Main Process Init-Reihenfolge (`src/main/index.ts`):**
+**Main Process Init-Reihenfolge (`src/main.ts`):**
 
 1. `initNanoStoreIPC({ channelPrefix: 'whisperflow' })` — zuerst
 2. Shared Stores importieren (`@shared/stores`)

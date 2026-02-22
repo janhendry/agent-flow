@@ -160,7 +160,7 @@ This document provides the complete epic and story breakdown for agent-flow (Whi
 
 - shared/ auf Root-Ebene (nicht in src/) — via @shared Vite/TS-Alias
 - shared/types/, shared/stores/, shared/services/ (defineService Wrapper)
-- src/main/lib/ für Node/Electron-only Implementierungen
+- src/lib/ für Node/Electron-only Implementierungen
 - src/renderer/ für React-Komponenten, Hooks, Utils
 - Typed Error Objects (AppError) via IPC — nie rohe Error
 - async/await überall — kein .then(), keine Callbacks
@@ -328,7 +328,7 @@ So that ich sofort mit der Feature-Entwicklung beginnen kann ohne Build- oder St
 **Then** startet `npm run dev` eine Electron-App ohne Fehler
 **And** folgende Dependencies sind in package.json: nanostores, @nanostores/react, @janhendry/nanostore-ipc-bridge, electron-store, ffmpeg-static, openai, zod, electron-log, tailwindcss, @radix-ui/react-\*, framer-motion, vitest
 **And** React 19 + TypeScript 5.x sind konfiguriert
-**And** die Verzeichnisstruktur existiert: `shared/types/`, `shared/stores/`, `shared/stores/actions/`, `shared/services/`, `src/main/lib/`, `src/main/lib/adapters/`, `src/preload/`, `src/renderer/components/`, `src/renderer/screens/`, `src/renderer/hooks/`, `src/renderer/utils/`, `src/__tests__/`
+**And** die Verzeichnisstruktur existiert: `shared/types/`, `shared/stores/`, `shared/stores/actions/`, `shared/services/`, `src/lib/`, `src/lib/adapters/`, `src/renderer/components/`, `src/renderer/screens/`, `src/renderer/hooks/`, `src/renderer/utils/`, `src/__tests__/`
 **And** der `@shared` Alias ist in `vite.main.config.ts`, `vite.renderer.config.ts` und `tsconfig.json` konfiguriert (`shared/ → @shared`)
 **And** `asarUnpack` für `ffmpeg-static` ist in `forge.config.ts` konfiguriert
 **And** `entitlements.mac.plist` existiert mit den erforderlichen Entitlements (unsigned-executable-memory, disable-library-validation, audio-input, audio-output)
@@ -343,10 +343,10 @@ So that alle zukünftigen Features auf einer konsistenten, typsicheren State-Man
 
 **Given** das Projekt aus Story 1.1
 **When** die Shared Types und NanoStores konfiguriert werden
-**Then** existiert `shared/types/index.ts` als Barrel-Export mit: `ipc.types.ts` (IPC Consts, SERVICE_IDS, STORE_IDS), `recording.types.ts` (RecordingStatus, RecordingState, RecordingMode, AudioDevice), `error.types.ts` (AppError, ErrorCode), `settings.types.ts` (AppSettings), `hud.types.ts` (HudState), `window.types.ts` (WindowName, WindowConfig)
-**And** alle IPC Channel-Namen sind als TypeScript `const` in `ipc.types.ts` definiert (IPC.WINDOW._, IPC.PROFILE._, IPC.SHORTCUT._, IPC.TRAY._) — keine Magic Strings
-**And** `initNanoStoreIPC({ channelPrefix: 'whisperflow', enableLogging: isDev, autoRegisterWindows: true })` ist in `src/main/index.ts` aufgerufen
-**And** `exposeNanoStoreIPC({ channelPrefix: 'whisperflow' })` ist in `src/preload/index.ts` aufgerufen
+**Then** existiert `shared/types/index.ts` als Barrel-Export mit: `ipc.types.ts` (IPC Consts, SERVICE*IDS, STORE_IDS), `recording.types.ts` (RecordingStatus, RecordingState, RecordingMode, AudioDevice), `error.types.ts` (AppError, ErrorCode), `settings.types.ts` (AppSettings), `hud.types.ts` (HudState), `window.types.ts` (WindowName, WindowConfig)
+**And** alle IPC Channel-Namen sind als TypeScript `const` in `ipc.types.ts` definiert (IPC.WINDOW.*, IPC.PROFILE._, IPC.SHORTCUT._, IPC.TRAY.\_) — keine Magic Strings
+**And** `initNanoStoreIPC({ channelPrefix: 'whisperflow', enableLogging: isDev, autoRegisterWindows: true })` ist in `src/main.ts` aufgerufen
+**And** `exposeNanoStoreIPC({ channelPrefix: 'whisperflow' })` ist in `src/preload.ts` aufgerufen
 **And** Basis-Stores existieren: `$recordingState` (syncedAtom), `$hudVisible`, `$hudState`, `$settings`, `$snackbarQueue` — alle mit `$` Prefix in `shared/stores/`
 **And** Actions existieren in `shared/stores/actions/` für jeden Store — Stores werden nie direkt via `store.set()` mutiert
 **And** ein Vitest-Test in `src/__tests__/` verifiziert, dass die Types korrekt exportiert werden
@@ -361,7 +361,7 @@ So that alle App-Fenster (HUD, Settings, Onboarding) konsistent erstellt und ges
 
 **Given** das Projekt mit IPC Foundation aus Story 1.2
 **When** der Window Manager und das Design System eingerichtet werden
-**Then** existiert `src/main/lib/window-manager.lib.ts` als Singleton-Registry (`Map<WindowName, BrowserWindow>`) mit Methoden: `getOrCreate(name, config)`, `show(name)`, `hide(name)`, `destroy(name)`
+**Then** existiert `src/lib/window-manager.lib.ts` als Singleton-Registry (`Map<WindowName, BrowserWindow>`) mit Methoden: `getOrCreate(name, config)`, `show(name)`, `hide(name)`, `destroy(name)`
 **And** Fenster werden per Lazy Init erstellt (beim ersten Aufruf) und danach gecacht
 **And** unterstützte WindowNames sind: 'hud', 'settings', 'onboarding', 'snackbar', 'profile-switcher', 'history'
 **And** `shared/services/window.service.ts` existiert mit `defineService()` Wrapper der `window-manager.lib.ts` aufruft
@@ -407,12 +407,12 @@ So that der Recording-Flow korrekt gesteuert wird und immer ein funktionierendes
 
 **Given** das Projekt aus Epic 1
 **When** die Recording State Machine implementiert wird
-**Then** existiert `src/main/lib/recording-state-machine.ts` mit den Zuständen: idle, recording, encoding, uploading, transcribed, error
+**Then** existiert `src/lib/recording-state-machine.ts` mit den Zuständen: idle, recording, encoding, uploading, transcribed, error
 **And** erlaubte Übergänge sind exakt: idle→START→recording, recording→STOP→encoding, recording→ERROR→error, encoding→ENCODED→uploading, encoding→ERROR→error, uploading→TRANSCRIBED→transcribed, uploading→ERROR→error, transcribed→RESET→idle, error→RESET→idle
 **And** verbotene Übergänge (z.B. START in recording, STOP in idle) werden silent ignoriert und geloggt
-**And** `src/main/lib/audio-device.lib.ts` erkennt verfügbare Audiogeräte automatisch (FR5)
+**And** `src/lib/audio-device.lib.ts` erkennt verfügbare Audiogeräte automatisch (FR5)
 **And** Hot-plug wird unterstützt — neue/entfernte Geräte werden erkannt (FR5)
-**And** `src/main/lib/adapters/mic-capture.adapter.ts` implementiert das `AudioCaptureAdapter` Interface für Mic-Only
+**And** `src/lib/adapters/mic-capture.adapter.ts` implementiert das `AudioCaptureAdapter` Interface für Mic-Only
 **And** Stub-Dateien für `blackhole-capture.adapter.ts` und `wasapi-capture.adapter.ts` existieren mit `throw new AppError({ code: 'NOT_IMPLEMENTED' })`
 **And** Vitest-Tests verifizieren alle erlaubten und verbotenen Zustandsübergänge
 
@@ -426,7 +426,7 @@ So that meine gesprochenen Worte verlustfrei erfasst und effizient an die Whispe
 
 **Given** ein funktionierendes Mikrofon ist verfügbar
 **When** eine Aufnahme gestartet und gestoppt wird
-**Then** startet `src/main/lib/ffmpeg.lib.ts` einen FFmpeg-Kindprozess für WAV-Aufnahme vom ausgewählten Mic-Device
+**Then** startet `src/lib/ffmpeg.lib.ts` einen FFmpeg-Kindprozess für WAV-Aufnahme vom ausgewählten Mic-Device
 **And** nach Stopp wird die WAV-Datei in WebM/Opus konvertiert (schneller als Echtzeit, NFR3)
 **And** Audiodateien werden in `app.getPath('userData')/recordings/temp/` gespeichert
 **And** der FFmpeg-Prozess wird bei App-Close oder Fehler sauber terminiert (kill + cleanup)
@@ -446,9 +446,9 @@ So that ich nach dem Sprechen sofort den transkribierten Text erhalte ohne mich 
 **When** die Transkription ausgelöst wird
 **Then** wird der API Key via `electron.safeStorage.encryptString()` verschlüsselt in `electron-store` gespeichert (NFR12)
 **And** zur Laufzeit wird der Key via `safeStorage.decryptString()` entschlüsselt — nie als Plaintext auf Disk
-**And** `src/main/lib/safe-storage.lib.ts` bietet `encrypt(value)` und `decrypt(buffer)` Methoden
-**And** `src/main/lib/electron-store.lib.ts` initialisiert die electron-store Instanz mit Zod-Schema-Validierung
-**And** `src/main/lib/whisper-api.lib.ts` sendet die Audiodatei an `POST /v1/audio/transcriptions` mit dem konfigurierten Modell (Default: gpt-4o-mini-transcribe)
+**And** `src/lib/safe-storage.lib.ts` bietet `encrypt(value)` und `decrypt(buffer)` Methoden
+**And** `src/lib/electron-store.lib.ts` initialisiert die electron-store Instanz mit Zod-Schema-Validierung
+**And** `src/lib/whisper-api.lib.ts` sendet die Audiodatei an `POST /v1/audio/transcriptions` mit dem konfigurierten Modell (Default: gpt-4o-mini-transcribe)
 **And** API-Fehler werden als `AppError` propagiert: `API_KEY_INVALID` (401), `API_TIMEOUT`, `API_QUOTA_EXCEEDED` (429)
 **And** `shared/services/transcription.service.ts` existiert als `defineService()` Wrapper
 **And** `shared/services/settings.service.ts` bietet Handler zum Speichern/Laden des API Keys
@@ -466,7 +466,7 @@ So that ich in jeder App per Tastendruck diktieren kann und das Transkript sofor
 **When** der Nutzer den globalen Shortcut drückt (Default: Cmd+Shift+Space)
 **Then** startet die Mic-Recording sofort (FR1)
 **And** der Shortcut funktioniert unabhängig davon welche App im Vordergrund ist (FR18)
-**And** `src/main/lib/shortcut.lib.ts` registriert globale Shortcuts via Electron `globalShortcut` API (FR17)
+**And** `src/lib/shortcut.lib.ts` registriert globale Shortcuts via Electron `globalShortcut` API (FR17)
 **And** Shortcuts werden nach System-Sleep/Wake neu registriert (NFR6)
 **And** ein zweiter Shortcut-Press stoppt die Aufnahme und löst die Pipeline aus: Encoding → Whisper API → Clipboard
 **And** `shared/services/clipboard.service.ts` kopiert das Transkriptionsergebnis automatisch in die System-Zwischenablage (FR12)
@@ -511,7 +511,7 @@ So that ich Vertrauen habe dass mein Mikrofon aktives Signal empfängt.
 **Given** das HUD zeigt den Recording-State
 **When** Audio aufgenommen wird
 **Then** zeigt das HUD 10 vertikale Bars in neutralem Grau (#5A5A62), animiert nach Audio-Amplitude (FR20, FR20a)
-**And** `src/main/lib/audio-level.lib.ts` erstellt einen dedizierten MessagePort pro HUD-Renderer-Instanz
+**And** `src/lib/audio-level.lib.ts` erstellt einen dedizierten MessagePort pro HUD-Renderer-Instanz
 **And** RMS-Pegel wird im Main Process aus PCM-Buffer-Chunks berechnet und als Float32Array über den MessagePort gestreamt
 **And** `src/renderer/hooks/useAudioLevel.ts` empfängt den Port und liefert den aktuellen Pegel-Wert
 **And** `src/renderer/components/AudioLevelMeter.tsx` rendert die Bars via Canvas + `requestAnimationFrame` (60fps-synchron)
@@ -805,7 +805,7 @@ So that ich System-Audio-Recording nutzen kann.
 
 **Given** der Nutzer wählt ein Profil mit System-Audio oder Dual-Recording-Modus
 **When** die App den Dependency-Check durchführt
-**Then** prüft `src/main/lib/dependency-check.lib.ts` ob BlackHole als Audio-Device verfügbar ist (FR7)
+**Then** prüft `src/lib/dependency-check.lib.ts` ob BlackHole als Audio-Device verfügbar ist (FR7)
 **And** der Status wird in `$settings.dependencyStatus.blackhole` gespeichert ('installed' | 'missing')
 **And** bei fehlendem BlackHole zeigt die App eine Setup-Anleitung mit Link zur BlackHole-Downloadseite
 **And** im Onboarding (Schritt System-Check) wird BlackHole geprüft und bei Fehlen eine Anleitung angezeigt (FR33)

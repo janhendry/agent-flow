@@ -42,7 +42,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   # ── Epic 1: App Foundation & System Tray (MVP) ──
   epic-1: in-progress
-  1-1-electron-forge-projekt-scaffolding-basis-dependencies: ready-for-dev
+  1-1-electron-forge-projekt-scaffolding-basis-dependencies: review
   1-2-shared-types-ipc-foundation-nanostore-setup: backlog
   1-3-window-manager-design-system-foundation: backlog
   1-4-system-tray-kontextmenu-ffmpeg-verification: backlog
