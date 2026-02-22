@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhisperFlow — History Overlay</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0A0A0B;
+    --surface: #141415;
+    --surface-2: #1C1C1E;
+    --border: #2A2A2D;
+    --text: #FAFAFA;
+    --muted: #8A8A8E;
+    --muted-dim: #5A5A62;
+    --accent: #6366F1;
+    --accent-tint: #25253A;
+    --accent-badge: #2D2D4A;
+    --accent-border: rgba(99,102,241,0.8);
+    --hover: #1A1A1C;
+    --badge-bg: #1E1E24;
+    --success: #22C55E;
+  }
+
+  body {
+    background: #050506;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    padding: 48px 64px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
+  .page-header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  /* ── NAV ── */
+  .nav {
+    display: flex; gap: 4px;
+    padding: 16px 64px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: rgba(5,5,6,0.92);
+    backdrop-filter: blur(12px); z-index: 100;
+  }
+  .nav-btn {
+    padding: 6px 16px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 13px; transition: all 0.15s;
+  }
+  .nav-btn:hover { background: var(--surface); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; }
+
+  .section { display: none; padding: 48px 64px; }
+  .section.active { display: block; }
+
+  /* ── DEMO SECTION ── */
+  .demo-stage {
+    background: #080809;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 64px 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 560px;
+    position: relative;
+  }
+
+  .stage-label {
+    position: absolute;
+    top: 16px; left: 20px;
+    font-size: 11px;
+    color: var(--muted-dim);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .keyboard-hint-outer {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: var(--muted-dim);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .keyboard-hint-outer.visible { opacity: 1; }
+
+  /* ── OVERLAY CONTAINER ── */
+  .overlay {
+    width: 720px;
+    max-height: 520px;
+    background: rgba(20,20,21,0.97);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform-origin: top center;
+    animation: overlay-open 0.15s ease-out forwards;
+  }
+
+  @keyframes overlay-open {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  /* ── SEARCH INPUT ── */
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 18px;
+    height: 52px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .search-icon {
+    color: var(--muted);
+    flex-shrink: 0;
+    display: flex;
+  }
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    caret-color: var(--accent);
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-clear {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--border);
+    border: none;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 10px;
+    flex-shrink: 0;
+    transition: background 0.1s;
+  }
+  .search-clear:hover { background: var(--muted-dim); color: var(--text); }
+  .search-clear.visible { display: flex; }
+
+  /* ── LIST ── */
+  .entry-list {
+    overflow-y: auto;
+    padding: 4px 0;
+    flex: 1;
+  }
+  .entry-list::-webkit-scrollbar { width: 6px; }
+  .entry-list::-webkit-scrollbar-track { background: transparent; }
+  .entry-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* empty state */
+  .empty-state {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .empty-state.visible { display: flex; }
+
+  /* ── ENTRY ── */
+  .entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    height: 48px;
+    cursor: pointer;
+    transition: background 0.07s;
+    position: relative;
+    border-left: 2px solid transparent;
+    user-select: none;
+  }
+  .entry:hover { background: var(--hover); }
+  .entry.highlighted {
+    background: var(--accent-tint);
+    border-left-color: var(--accent);
+  }
+  .entry.highlighted .preview { color: #fff; }
+  .entry.highlighted .badge { background: var(--accent-badge); }
+  .entry.highlighted .meta { color: var(--muted); }
+
+  /* copied flash */
+  .entry.copied { animation: flash-copied 0.4s ease-out; }
+  @keyframes flash-copied {
+    0%   { background: rgba(34,197,94,0.2); }
+    100% { background: var(--accent-tint); }
+  }
+
+  /* badge */
+  .badge {
+    width: 20px; height: 20px;
+    border-radius: 6px;
+    background: var(--badge-bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.07s;
+  }
+  .badge svg { width: 11px; height: 11px; color: var(--muted); }
+
+  /* preview */
+  .preview {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 0.07s;
+  }
+  .preview mark {
+    background: transparent;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* meta */
+  .meta {
+    font-size: 11px;
+    color: var(--muted-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.07s;
+  }
+
+  /* ── FOOTER HINT ── */
+  .footer-hint {
+    padding: 8px 0 2px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted-dim);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .footer-hint kbd {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: inherit;
+    color: var(--muted);
+  }
+
+  /* ── SPEC TABLE ── */
+  .spec-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 32px;
+  }
+  .spec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .spec-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+  }
+  .spec-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-row .label { color: var(--muted); }
+  .spec-row .value { font-weight: 500; }
+  .spec-row .value.accent { color: var(--accent); }
+  .spec-row .value.success { color: var(--success); }
+  .spec-row .value code {
+    font-family: 'SF Mono', 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  /* state switches */
+  .state-buttons {
+    display: flex; gap: 8px;
+    margin-top: 24px; margin-bottom: 8px;
+  }
+  .state-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .state-btn:hover { border-color: var(--muted); color: var(--text); }
+  .state-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── STATES SECTION ── */
+  .states-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-top: 8px;
+  }
+  .state-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .state-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; justify-content: space-between;
+  }
+  .state-card-preview {
+    padding: 20px 16px;
+    background: #080809;
+    min-height: 90px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  /* mini entry previews */
+  .mini-entry {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 8px;
+    height: 36px;
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+  }
+  .mini-entry.hl {
+    background: var(--accent-tint);
+    border-left-color: var(--accent);
+  }
+  .mini-entry.hover-state { background: var(--hover); }
+  .mini-badge {
+    width: 16px; height: 16px; border-radius: 4px;
+    background: var(--badge-bg); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mini-badge.hl { background: var(--accent-badge); }
+  .mini-badge svg { width: 9px; height: 9px; color: var(--muted); }
+  .mini-text { font-size: 11px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini-text.hl { color: #fff; }
+  .mini-meta { font-size: 10px; color: var(--muted-dim); white-space: nowrap; }
+
+  .section-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .section-desc { color: var(--muted); margin-bottom: 32px; font-size: 14px; }
+
+  .hint-row {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .hint-row strong { color: var(--text); }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 32px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s;
+    z-index: 999;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast .check { color: var(--success); font-size: 16px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>WhisperFlow — History Overlay</h1>
+  <p>Interaktive Design-Demo · <kbd style="background:#1c1c1e;border:1px solid #2a2a2d;border-radius:4px;padding:2px 6px;font-size:12px;color:#8a8a8e;">Cmd+Shift+H</kbd> · Spotlight-artig, Keyboard-first</p>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showSection('demo')">Live Demo</button>
+  <button class="nav-btn" onclick="showSection('states')">Zustände</button>
+  <button class="nav-btn" onclick="showSection('spec')">Spezifikation</button>
+</nav>
+
+<!-- ══════════════ DEMO ══════════════ -->
+<section class="section active" id="demo">
+  <div class="section-title">Interaktive Demo</div>
+  <div class="section-desc">Tippe im Suchfeld — die Liste filtert in Echtzeit. Pfeiltasten ↑↓ navigieren, Enter kopiert, ESC schließt.</div>
+
+  <div class="state-buttons">
+    <button class="state-btn active" onclick="setFilter('')">Alle Einträge</button>
+    <button class="state-btn" onclick="setFilter('meeting')">Suche: "meeting"</button>
+    <button class="state-btn" onclick="setFilter('commit')">Suche: "commit"</button>
+    <button class="state-btn" onclick="setFilter('xxxxxx')">Kein Ergebnis</button>
+  </div>
+
+  <div class="demo-stage" id="demoStage">
+    <span class="stage-label">Desktop — aktuell fokussierte App</span>
+
+    <div class="overlay" id="overlay">
+      <div class="search-row">
+        <span class="search-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M10.5 10.5L13 13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <input
+          class="search-input"
+          id="searchInput"
+          type="text"
+          placeholder="Transkriptionen durchsuchen..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="search-clear" id="clearBtn" onclick="clearSearch()" title="Löschen">✕</button>
+      </div>
+
+      <div class="entry-list" id="entryList"></div>
+      <div class="empty-state" id="emptyState">Keine Transkriptionen gefunden</div>
+
+      <div class="footer-hint">
+        <kbd>↑↓</kbd> Navigieren &nbsp;·&nbsp; <kbd>↵</kbd> Kopieren &nbsp;·&nbsp; <kbd>ESC</kbd> Schließen
+      </div>
+    </div>
+
+    <div class="keyboard-hint-outer" id="outerHint">Overlay geschlossen — klicke hier oder drücke die Demo-Taste</div>
+  </div>
+
+  <div class="hint-row">
+    <strong>Tastatur-Navigation:</strong> Die Demo ist vollständig keyboard-bedienbar. Klicke auf das Overlay um den Fokus zu aktivieren, dann Pfeiltasten + Enter. <strong>Enter</strong> auf einem Eintrag kopiert den Text in die Zwischenablage (Toast erscheint). <strong>ESC</strong> schließt das Overlay — Klick auf die Stage öffnet es wieder. <strong>Fuzzy Search:</strong> Tippe z.B. <code style="background:#1c1c1e;padding:1px 5px;border-radius:4px;font-size:11px">mtng</code> für „meeting" oder <code style="background:#1c1c1e;padding:1px 5px;border-radius:4px;font-size:11px">cmmt</code> für „commit".
+  </div>
+</section>
+
+<!-- ══════════════ STATES ══════════════ -->
+<section class="section" id="states">
+  <div class="section-title">Eintrag-Zustände</div>
+  <div class="section-desc">Drei visuelle Zustände pro Listeneintrag — Default, Hover und Highlighted (aktiv).</div>
+
+  <div class="states-grid">
+    <!-- Default -->
+    <div class="state-card">
+      <div class="state-card-header">
+        <span>Default</span>
+        <span style="color:var(--muted);font-weight:400">Normal</span>
+      </div>
+      <div class="state-card-preview">
+        <div class="mini-entry">
+          <div class="mini-badge"><svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 8.5c0-1.657 1.343-3 3-3s3 1.343 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text">Commit message for auth refactor…</div>
+          <div class="mini-meta">18 Min · Mic</div>
+        </div>
+        <div class="mini-entry" style="margin-top:4px">
+          <div class="mini-badge"><svg viewBox="0 0 12 12" fill="none"><rect x="1.5" y="2.5" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 9.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text">Zoom call transcript mit dem Team…</div>
+          <div class="mini-meta">3 Std · Out</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hover -->
+    <div class="state-card">
+      <div class="state-card-header">
+        <span>Hover</span>
+        <span style="color:var(--muted);font-weight:400">Maus über Eintrag</span>
+      </div>
+      <div class="state-card-preview">
+        <div class="mini-entry hover-state">
+          <div class="mini-badge"><svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 8.5c0-1.657 1.343-3 3-3s3 1.343 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text">Commit message for auth refactor…</div>
+          <div class="mini-meta">18 Min · Mic</div>
+        </div>
+        <div class="mini-entry" style="margin-top:4px">
+          <div class="mini-badge"><svg viewBox="0 0 12 12" fill="none"><rect x="1.5" y="2.5" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 9.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text">Zoom call transcript mit dem Team…</div>
+          <div class="mini-meta">3 Std · Out</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Highlighted -->
+    <div class="state-card">
+      <div class="state-card-header">
+        <span>Highlighted</span>
+        <span style="color:var(--accent);font-weight:400">Aktiv / fokussiert</span>
+      </div>
+      <div class="state-card-preview">
+        <div class="mini-entry hl" style="border-left: 2px solid var(--accent)">
+          <div class="mini-badge hl"><svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="#8A8A8E" stroke-width="1.2"/><path d="M3 8.5c0-1.657 1.343-3 3-3s3 1.343 3 3" stroke="#8A8A8E" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text hl">Commit message for auth refactor…</div>
+          <div class="mini-meta" style="color:var(--muted)">18 Min · Mic</div>
+        </div>
+        <div class="mini-entry" style="margin-top:4px">
+          <div class="mini-badge"><svg viewBox="0 0 12 12" fill="none"><rect x="1.5" y="2.5" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 9.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="mini-text">Zoom call transcript mit dem Team…</div>
+          <div class="mini-meta">3 Std · Out</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color tokens -->
+  <div style="margin-top:32px">
+    <div class="section-title" style="font-size:16px;margin-bottom:16px">Farb-Tokens pro Zustand</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:12px">DEFAULT</div>
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Hintergrund</span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">transparent</code></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Badge BG</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#1E1E24;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#1E1E24</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Preview Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#FAFAFA;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#FAFAFA</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Meta Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#5A5A62;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#5A5A62</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Left Border</span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">transparent</code></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:12px">HOVER</div>
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Hintergrund</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#1A1A1C;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#1A1A1C</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Badge BG</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#1E1E24;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#1E1E24</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Preview Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#FAFAFA;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#FAFAFA</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Meta Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#5A5A62;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#5A5A62</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Left Border</span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">transparent</code></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid #3D3D7A;border-radius:10px;padding:16px 20px">
+        <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:12px">HIGHLIGHTED</div>
+        <div style="font-size:12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Hintergrund</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#25253A;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#25253A</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Badge BG</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#2D2D4A;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#2D2D4A</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Preview Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#FFFFFF;border-radius:3px;display:inline-block;border:1px solid #333"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#FFFFFF</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Meta Text</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#8A8A8E;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#8A8A8E</code></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Left Border</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;background:#6366F1;border-radius:3px;display:inline-block"></span><code style="background:#1c1c1e;padding:1px 6px;border-radius:4px;font-size:11px">#6366F1</code></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ SPEC ══════════════ -->
+<section class="section" id="spec">
+  <div class="section-title">Spezifikation</div>
+  <div class="section-desc">Alle Design-Tokens und Maße für die Implementierung.</div>
+
+  <div class="spec-grid">
+    <div class="spec-card">
+      <h3>Container</h3>
+      <div class="spec-row"><span class="label">Breite</span><span class="value">720px (fix)</span></div>
+      <div class="spec-row"><span class="label">Max-Höhe</span><span class="value">560px</span></div>
+      <div class="spec-row"><span class="label">Border-radius</span><span class="value">14px</span></div>
+      <div class="spec-row"><span class="label">Hintergrund</span><span class="value"><code>#141415</code></span></div>
+      <div class="spec-row"><span class="label">Border</span><span class="value"><code>1px solid #2A2A2D</code></span></div>
+      <div class="spec-row"><span class="label">Shadow</span><span class="value"><code>0 20px 60px rgba(0,0,0,0.7)</code></span></div>
+      <div class="spec-row"><span class="label">Backdrop-filter</span><span class="value">blur(20px)</span></div>
+    </div>
+
+    <div class="spec-card">
+      <h3>Search Input</h3>
+      <div class="spec-row"><span class="label">Höhe</span><span class="value">52px</span></div>
+      <div class="spec-row"><span class="label">Hintergrund</span><span class="value"><code>#0A0A0B</code></span></div>
+      <div class="spec-row"><span class="label">Font</span><span class="value">Inter 15px / 400</span></div>
+      <div class="spec-row"><span class="label">Placeholder</span><span class="value"><code>#8A8A8E</code></span></div>
+      <div class="spec-row"><span class="label">Cursor</span><span class="value accent">Immer fokussiert</span></div>
+      <div class="spec-row"><span class="label">Caret</span><span class="value"><code>#6366F1</code></span></div>
+    </div>
+
+    <div class="spec-card">
+      <h3>Listeneintrag</h3>
+      <div class="spec-row"><span class="label">Höhe</span><span class="value">48px</span></div>
+      <div class="spec-row"><span class="label">Layout</span><span class="value">Single-line, 3 Zonen</span></div>
+      <div class="spec-row"><span class="label">Padding horizontal</span><span class="value">16px</span></div>
+      <div class="spec-row"><span class="label">Preview Font</span><span class="value">Inter 13px / 400</span></div>
+      <div class="spec-row"><span class="label">Meta Font</span><span class="value">Inter 11px / 400</span></div>
+        <div class="spec-row"><span class="label">Filter-Logik</span><span class="value accent">Fuzzy Search</span></div>
+        <div class="spec-row"><span class="label">Sortierung</span><span class="value">Nach Relevanz (Score)</span></div>
+    </div>
+
+    <div class="spec-card">
+      <h3>Icon Badge</h3>
+      <div class="spec-row"><span class="label">Größe</span><span class="value">20 × 20px</span></div>
+      <div class="spec-row"><span class="label">Border-radius</span><span class="value">6px</span></div>
+      <div class="spec-row"><span class="label">BG Default</span><span class="value"><code>#1E1E24</code></span></div>
+      <div class="spec-row"><span class="label">BG Highlighted</span><span class="value"><code>#2D2D4A</code></span></div>
+      <div class="spec-row"><span class="label">Icon Größe</span><span class="value">11px SVG</span></div>
+      <div class="spec-row"><span class="label">Icon Farbe</span><span class="value"><code>#8A8A8E</code></span></div>
+    </div>
+
+    <div class="spec-card">
+      <h3>Animationen</h3>
+      <div class="spec-row"><span class="label">Öffnen</span><span class="value">Fade + Scale 0.96→1, 150ms</span></div>
+      <div class="spec-row"><span class="label">Schließen</span><span class="value">Fade + Scale 1→0.96, 100ms</span></div>
+      <div class="spec-row"><span class="label">Filter (Liste)</span><span class="value">Opacity 0→1, 80ms</span></div>
+      <div class="spec-row"><span class="label">Highlight-Wechsel</span><span class="value">Background fade, 60ms</span></div>
+      <div class="spec-row"><span class="label">Reduced Motion</span><span class="value accent">Alles deaktiviert</span></div>
+    </div>
+
+    <div class="spec-card">
+      <h3>Keyboard Navigation</h3>
+      <div class="spec-row"><span class="label">↓ (aus Search)</span><span class="value">Ersten Eintrag aktivieren</span></div>
+      <div class="spec-row"><span class="label">↑ (erster Eintrag)</span><span class="value">Fokus → Search Input</span></div>
+      <div class="spec-row"><span class="label">Enter</span><span class="value success">Kopieren + Schließen</span></div>
+      <div class="spec-row"><span class="label">ESC</span><span class="value">Schließen ohne Aktion</span></div>
+      <div class="spec-row"><span class="label">Tippen</span><span class="value">Filtert sofort (Fuzzy)</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="check">✓</span>
+  <span id="toastText">Transkription kopiert</span>
+</div>
+
+<script>
+  // ── DATA ──
+  const ENTRIES = [
+    { id:1, mode:'dual', icon:'dual', text:'Meeting Notes - Product Roadmap Q1 war das wichtigste Thema in unserem Sync heute Nachmittag', meta:'5 Min · Dual' },
+    { id:2, mode:'mic', icon:'mic', text:'Commit message for auth refactor: fix token refresh race condition on concurrent requests', meta:'18 Min · Mic' },
+    { id:3, mode:'mic', icon:'mic', text:'Email to the team about the monday deadline extension request from the client side', meta:'1 Std · Mic' },
+    { id:4, mode:'out', icon:'out', text:'Zoom call transcript: wir müssen das bis Ende der Woche fertigstellen und das Board informieren', meta:'3 Std · Out' },
+    { id:5, mode:'mic', icon:'mic', text:'PR description for the new onboarding flow implementation including edge cases and rollback plan', meta:'Gestern, 16:42 · Mic' },
+    { id:6, mode:'mic', icon:'mic', text:'Slack message to design team: the new color tokens look great, but the spacing on mobile needs review', meta:'Gestern, 14:10 · Mic' },
+    { id:7, mode:'dual', icon:'dual', text:'Meeting with investors: key feedback was around the monetization strategy and enterprise pricing model', meta:'Vorgestern · Dual' },
+    { id:8, mode:'out', icon:'out', text:'YouTube tutorial transcript über Rust async programming patterns und tokio runtime internals', meta:'Vorgestern · Out' },
+    { id:9, mode:'mic', icon:'mic', text:'Bug report für das History Window: beim Filtern nach Datum wird der falsche Zeitstempel angezeigt', meta:'3 Tage · Mic' },
+    { id:10, mode:'mic', icon:'mic', text:'Architecture notes for the new IPC bridge between main and renderer process in Electron', meta:'4 Tage · Mic' },
+  ];
+
+  const ICONS = {
+    mic: `<svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 8.5c0-1.657 1.343-3 3-3s3 1.343 3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+    out: `<svg viewBox="0 0 12 12" fill="none"><rect x="1.5" y="2.5" width="9" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 9.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+    dual: `<svg viewBox="0 0 12 12" fill="none"><path d="M2 6c0-1.1.9-2 2-2s2 .9 2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="4" cy="4" r="1.2" stroke="currentColor" stroke-width="1.2"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="4" r="1.2" stroke="currentColor" stroke-width="1.2"/></svg>`,
+  };
+
+  let currentQuery = '';
+  let highlightedIdx = 0;
+  let filteredEntries = [...ENTRIES];
+  let overlayOpen = true;
+
+  // Fuzzy match: query chars must appear in order in text (not necessarily adjacent)
+  function fuzzyMatch(text, query) {
+    if (!query) return { match: true, score: 0, indices: [] };
+    const t = text.toLowerCase();
+    const q = query.toLowerCase();
+    let ti = 0, qi = 0;
+    const indices = [];
+    while (ti < t.length && qi < q.length) {
+      if (t[ti] === q[qi]) { indices.push(ti); qi++; }
+      ti++;
+    }
+    if (qi < q.length) return { match: false, score: 0, indices: [] };
+    // Score: reward consecutive matches, penalize late start
+    let consecutive = 0;
+    for (let i = 1; i < indices.length; i++) {
+      if (indices[i] === indices[i - 1] + 1) consecutive++;
+    }
+    const score = consecutive * 10 - indices[0];
+    return { match: true, score, indices };
+  }
+
+  function getFilteredEntries(q) {
+    if (!q) return [...ENTRIES];
+    return ENTRIES
+      .map(e => ({ entry: e, m: fuzzyMatch(e.text, q) }))
+      .filter(({ m }) => m.match)
+      .sort((a, b) => b.m.score - a.m.score)
+      .map(({ entry }) => entry);
+  }
+
+  function highlight(text, query) {
+    if (!query) return text;
+    const q = query.toLowerCase();
+    const matched = new Set();
+    let qi = 0;
+    for (let i = 0; i < text.length && qi < q.length; i++) {
+      if (text[i].toLowerCase() === q[qi]) { matched.add(i); qi++; }
+    }
+    let out = '';
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i].replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      out += matched.has(i) ? `<mark>${ch}</mark>` : ch;
+    }
+    return out;
+  }
+
+  function truncate(text, max=100) {
+    return text.length > max ? text.slice(0, max) + '…' : text;
+  }
+
+  function renderList() {
+    const list = document.getElementById('entryList');
+    const empty = document.getElementById('emptyState');
+    filteredEntries = getFilteredEntries(currentQuery);
+
+    if (filteredEntries.length === 0) {
+      list.innerHTML = '';
+      empty.classList.add('visible');
+      highlightedIdx = -1;
+      return;
+    }
+    empty.classList.remove('visible');
+    if (highlightedIdx >= filteredEntries.length) highlightedIdx = 0;
+
+    list.innerHTML = filteredEntries.map((e, i) => {
+      const preview = highlight(truncate(e.text), currentQuery);
+      const isHL = i === highlightedIdx;
+      return `<div class="entry${isHL ? ' highlighted' : ''}" data-idx="${i}" onclick="selectEntry(${i})" onmouseenter="hoverEntry(${i})">
+        <div class="badge">${ICONS[e.icon]}</div>
+        <div class="preview">${preview}</div>
+        <div class="meta">${e.meta}</div>
+      </div>`;
+    }).join('');
+
+    // scroll highlighted into view
+    const hlEl = list.querySelector('.highlighted');
+    if (hlEl) hlEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  function hoverEntry(idx) {
+    highlightedIdx = idx;
+    renderList();
+  }
+
+  function selectEntry(idx) {
+    const entry = filteredEntries[idx];
+    if (!entry) return;
+
+    // flash
+    const el = document.querySelector(`[data-idx="${idx}"]`);
+    if (el) { el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 400); }
+
+    // copy to clipboard
+    if (navigator.clipboard) navigator.clipboard.writeText(entry.text).catch(()=>{});
+
+    showToast(`"${truncate(entry.text, 40)}" kopiert`);
+    setTimeout(() => closeOverlay(), 600);
+  }
+
+  function closeOverlay() {
+    const overlay = document.getElementById('overlay');
+    overlay.style.animation = 'overlay-close 0.1s ease-in forwards';
+    overlay.style.pointerEvents = 'none';
+    setTimeout(() => {
+      overlay.style.display = 'none';
+      overlayOpen = false;
+      document.getElementById('outerHint').classList.add('visible');
+    }, 100);
+  }
+
+  function openOverlay() {
+    const overlay = document.getElementById('overlay');
+    overlay.style.display = 'flex';
+    overlay.style.animation = 'overlay-open 0.15s ease-out forwards';
+    overlay.style.pointerEvents = '';
+    overlayOpen = true;
+    document.getElementById('outerHint').classList.remove('visible');
+    currentQuery = '';
+    highlightedIdx = 0;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearBtn').classList.remove('visible');
+    renderList();
+    document.getElementById('searchInput').focus();
+  }
+
+  function clearSearch() {
+    currentQuery = '';
+    highlightedIdx = 0;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearBtn').classList.remove('visible');
+    renderList();
+    document.getElementById('searchInput').focus();
+  }
+
+  function setFilter(q) {
+    // reset active buttons
+    document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    if (!overlayOpen) openOverlay();
+    currentQuery = q;
+    highlightedIdx = 0;
+    document.getElementById('searchInput').value = q;
+    document.getElementById('clearBtn').classList.toggle('visible', q.length > 0);
+    renderList();
+  }
+
+  // search input events
+  document.getElementById('searchInput').addEventListener('input', function() {
+    currentQuery = this.value;
+    highlightedIdx = 0;
+    document.getElementById('clearBtn').classList.toggle('visible', currentQuery.length > 0);
+    renderList();
+  });
+
+  document.getElementById('searchInput').addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (filteredEntries.length === 0) return;
+      highlightedIdx = Math.min(highlightedIdx + 1, filteredEntries.length - 1);
+      renderList();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (highlightedIdx <= 0) { highlightedIdx = -1; }
+      else { highlightedIdx--; }
+      renderList();
+    } else if (e.key === 'Enter') {
+      if (highlightedIdx >= 0 && filteredEntries[highlightedIdx]) selectEntry(highlightedIdx);
+    } else if (e.key === 'Escape') {
+      closeOverlay();
+    }
+  });
+
+  // click on stage to reopen
+  document.getElementById('demoStage').addEventListener('click', function(e) {
+    if (!overlayOpen && !e.target.closest('.overlay')) openOverlay();
+  });
+
+  // toast
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastText').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // nav
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // add close animation keyframe
+  const style = document.createElement('style');
+  style.textContent = `@keyframes overlay-close { from { opacity:1; transform:scale(1); } to { opacity:0; transform:scale(0.96); } }`;
+  document.head.appendChild(style);
+
+  // init
+  renderList();
+  document.getElementById('searchInput').focus();
+</script>
+</body>
+</html>

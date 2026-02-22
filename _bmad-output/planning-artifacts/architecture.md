@@ -43,7 +43,7 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 | Output & Clipboard        | FR12–FR14 | T1: FR12; T2: FR13–FR14             |
 | System Tray & Shortcuts   | FR15–FR19 | T1: FR15–FR18; T2: FR19             |
 | HUD & Feedback            | FR20–FR24 | T1 komplett                         |
-| Settings & Konfiguration  | FR25–FR29 | T1: FR25–FR27; T2: FR28–FR29        |
+| Settings & Konfiguration  | FR25–FR29 | T1: FR25–FR27, FR27a–FR27c, FR28; T2: FR29 |
 | Onboarding & Erster Start | FR30–FR34 | T1 komplett                         |
 | Storage, Auto-Update      | FR35–FR39 | T2: FR35–FR37; T1: FR38–FR39        |
 
@@ -138,7 +138,7 @@ cd whisper-flow && npm install && npm run dev
 | Kategorie            | Library                                                                | Begründung                                                                                                    |
 | -------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | **State Management** | `nanostores` + `@nanostores/react` + `@janhendry/nanostore-ipc-bridge` | Single Source of Truth im Main Process, reaktive Multi-Window-Sync, Race-Condition-frei via Revision Tracking |
-| **Persistenz**       | `electron-store`                                                       | Settings, API Key, Shortcuts — getrennt vom Live-State                                                        |
+| **Persistenz**       | `electron-store`                                                       | Settings, API Key, Shortcuts, Profile, System Prompts, Glossare — getrennt vom Live-State                     |
 | **FFmpeg**           | `ffmpeg-static` ^5.3.0                                                 | Gebündelte Binary (macOS ARM64/x64, Windows x64), kein User-Setup nötig                                       |
 | **OpenAI Client**    | `openai` ^4.20.0                                                       | Whisper API + GPT Post-Processing                                                                             |
 | **Validation**       | `zod` ^3.x                                                             | Settings-Validation, API-Response-Schemas                                                                     |
@@ -190,6 +190,50 @@ initNanoStoreIPC({
 // src/preload/index.ts
 exposeNanoStoreIPC({ channelPrefix: "whisperflow" });
 ```
+
+---
+
+### Audio Level Streaming (MessagePort)
+
+**Kritische Klarstellung:** `MessagePort` wird ausschließlich für den Audio-Level-Stream verwendet — **nicht** als genereller State-Transport.
+
+| Transport                   | Verwendung                                                                                                                  |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **NanoStores + IPC-Bridge** | **Aller App-State**: Recording-Status, HUD-State, Settings, Snackbar-Queue, etc.                                            |
+| **MessagePort**             | **Nur Audio-Level-Stream**: Hochfrequenz-Pegel-Daten (50–100 Hz) — ausschließlich für `AudioLevelMeter.tsx` im HUD-Renderer |
+
+**Begründung:** Audio-Level-Daten (~50 Frames/s) würden den normalen IPC-Channel überlasten und Race Conditions im NanoStore-Sync verursachen. Ein dedizierter `MessagePort` pro HUD-Renderer-Instanz isoliert diesen Hochfrequenz-Channel vollständig vom Rest des App-States.
+
+**Implementierung:**
+
+```typescript
+// src/main/lib/audio-level.lib.ts
+// MessagePort wird beim HUD-Fenster-Init erstellt und an den Renderer übergeben
+export function createAudioLevelPort(hudWindow: BrowserWindow): MessagePort {
+  const { port1, port2 } = new MessageChannelMain();
+  hudWindow.webContents.postMessage("audio-level-port", null, [port2]);
+  return port1; // Main Process behält port1 — sendet Pegel-Daten
+}
+
+// Nutzung: port1.postMessage({ level: 0.72 }) — keine Store-Mutation, kein IPC-Handler
+```
+
+```typescript
+// src/renderer/hooks/useAudioLevel.ts
+// Renderer empfängt den Port und liest Pegel-Daten ohne Store-Overhead
+export function useAudioLevel(): number {
+  const [level, setLevel] = useState(0);
+  useEffect(() => {
+    navigator.serviceWorker; // nur zur TypeScript-Zufriedenheit
+    ipcRenderer.on("audio-level-port", (_, __, [port]: MessagePort[]) => {
+      port.onmessage = (e) => setLevel(e.data.level);
+    });
+  }, []);
+  return level;
+}
+```
+
+**Betroffene Dateien:** `src/main/lib/audio-level.lib.ts` (neu), `src/renderer/hooks/useAudioLevel.ts` (neu), `src/renderer/components/AudioLevelMeter.tsx`
 
 ---
 
@@ -251,7 +295,7 @@ export function getAudioAdapter(mode: RecordingMode): AudioCaptureAdapter {
 
 **Audio File Strategy: `app.getPath('userData')`**
 
-- Tier 1: WAV-Rohdateien + WebM/Opus-Encoded werden in `userData/recordings/temp/` abgelegt, nach erfolgreichem API-Call sofort gelöscht
+- Tier 1: WAV-Rohdateien + WebM/Opus-Encoded werden in `userData/recordings/temp/` abgelegt — **nicht sofort gelöscht**, sondern nach einer konfigurierbaren Aufbewahrungszeit (Standard-TTL, z.B. 24h) via Auto-Cleanup-Job bereinigt; Cleanup läuft beim App-Start
 - Tier 2: Persistente Aufnahmen in `userData/recordings/history/` mit Metadaten (Timestamp, Dauer, Modus)
 - Rationale: Mehr Kontrolle als `os.tmpdir()`, bildet natürliche Basis für Tier-2-History ohne Refactoring
 - Affects: FFmpeg Service, Transcription Service, History Service (Tier 2)
@@ -264,7 +308,7 @@ export function getAudioAdapter(mode: RecordingMode): AudioCaptureAdapter {
 
 - Zentrales `Map<WindowName, BrowserWindow>` im Main Process
 - Verantwortlich für: Erstellung, Caching, Positionierung, Show/Hide, Destroy
-- Fenster-Typen: `hud`, `settings`, `onboarding`, `snackbar`, `history` (Tier 2)
+- Fenster-Typen: `hud`, `settings`, `onboarding`, `snackbar`, `profile-switcher` (Spotlight-style Overlay, always-on-top), `history` (Tier 2)
 - Verhindert: Mehrfach-Instanzen, verwaiste Fenster, inkonsistente Positionen
 - Pattern: Lazy Init — Fenster wird beim ersten Aufruf erstellt, danach gecacht und nur show/hide
 - Affects: Alle BrowserWindow-Interaktionen, Tray-Menu-Aktionen, Shortcut-Handler
@@ -446,6 +490,10 @@ export const IPC = {
     SHOW_HUD: "window:show-hud",
     HIDE_HUD: "window:hide-hud",
     SHOW_SETTINGS: "window:show-settings",
+    SHOW_PROFILE_SWITCHER: "window:show-profile-switcher",
+  },
+  PROFILE: {
+    SET_ACTIVE: "profile:set-active",
   },
   SHORTCUT: {
     TRIGGERED: "shortcut:triggered",
@@ -760,6 +808,7 @@ transcriptionService.transcribe(filePath, (err, result) => { ... });
 7. `defineService()` Wrapper in `shared/services/` — Node/Electron Implementierungen in `src/main/lib/`
 8. React-Komponenten als Named Exports mit `PascalCase.tsx`
 9. Den `@shared` Alias für alle Imports aus `shared/` verwenden
+10. `MessagePort` **ausschließlich** für den Audio-Level-Stream (`AudioLevelMeter`) verwenden — **nie** für App-State-Transport; aller State läuft über NanoStores + `@janhendry/nanostore-ipc-bridge`
 
 ## Project Structure & Boundaries
 
@@ -773,7 +822,7 @@ transcriptionService.transcribe(filePath, (err, result) => { ... });
 | System Tray (FR15–FR16)       | `src/main/lib/tray.lib.ts`                                                                                                                                 |
 | Globale Shortcuts (FR17–FR18) | `src/main/lib/shortcut.lib.ts`                                                                                                                             |
 | HUD (FR20–FR24)               | `src/renderer/screens/HudWindow.tsx`, `src/renderer/components/AudioLevelMeter.tsx`, `shared/stores/hud.store.ts`                                          |
-| Settings (FR25–FR27)          | `shared/services/settings.service.ts`, `src/main/lib/safe-storage.lib.ts`, `src/main/lib/electron-store.lib.ts`, `src/renderer/screens/SettingsScreen.tsx` |
+| Settings (FR25–FR27, FR27a–c, FR28) | `shared/services/settings.service.ts`, `src/main/lib/safe-storage.lib.ts`, `src/main/lib/electron-store.lib.ts`, `src/renderer/screens/SettingsScreen.tsx`, `src/renderer/screens/ProfileSwitcherOverlay.tsx` |
 | Onboarding (FR30–FR34)        | `src/renderer/screens/OnboardingScreen.tsx`, `src/main/lib/dependency-check.lib.ts`                                                                        |
 | FFmpeg Pipeline               | `src/main/lib/ffmpeg.lib.ts` — `ffmpeg-static` Pfad via `import ffmpegPath from 'ffmpeg-static'`, Binary aus `process.resourcesPath` in Production         |
 | Window Management             | `src/main/lib/window-manager.lib.ts`                                                                                                                       |
@@ -819,7 +868,7 @@ whisper-flow/
 │       ├── index.ts
 │       ├── recording.service.ts     # defineService — ruft ffmpeg.lib + audio-device.lib auf
 │       ├── transcription.service.ts # defineService — ruft whisper-api.lib auf
-│       ├── settings.service.ts      # defineService — ruft safe-storage.lib + electron-store.lib auf
+│       ├── settings.service.ts      # defineService — verwaltet Settings, Profile, System Prompts, Glossare; CRUD + activeProfile + IPC-Channels für Profil-Wechsel; ruft safe-storage.lib + electron-store.lib auf
 │       ├── clipboard.service.ts     # defineService — electron clipboard
 │       └── window.service.ts        # defineService — ruft window-manager.lib auf
 │
@@ -835,7 +884,7 @@ whisper-flow/
     │       │   └── wasapi-capture.adapter.ts    # Tier 2 — Windows WASAPI Loopback (Stub in Tier 1, nativ via -f wasapi -loopback 1)
     │       ├── whisper-api.lib.ts       # OpenAI Whisper API HTTP-Client
     │       ├── safe-storage.lib.ts      # electron.safeStorage Encrypt/Decrypt
-    │       ├── electron-store.lib.ts    # electron-store Instanz + Schema
+    │       ├── electron-store.lib.ts    # electron-store Instanz + Schema (settings, apiKey, shortcuts, profiles[], activeProfileId, systemPrompts[], glossaries[])
     │       ├── shortcut.lib.ts          # globalShortcut Registration + Sleep/Wake Handling
     │       ├── tray.lib.ts              # Tray Icon + Context Menu
     │       ├── window-manager.lib.ts    # BrowserWindow Singleton-Registry (Map<WindowName, BrowserWindow>)
@@ -852,7 +901,8 @@ whisper-flow/
     │   │   └── SnackbarNotification.tsx
     │   ├── screens/
     │   │   ├── HudWindow.tsx            # Haupt-HUD mit allen States
-    │   │   ├── SettingsScreen.tsx       # Settings Tabs
+    │   │   ├── SettingsScreen.tsx       # Settings Tabs (API Key, Profile, Shortcuts, General, Audio, Display)
+    │   │   ├── ProfileSwitcherOverlay.tsx # Spotlight-style Profil-Wechsel (⌘⇧P, always-on-top)
     │   │   └── OnboardingScreen.tsx     # First-Run-Flow
     │   ├── hooks/
     │   │   ├── useRecordingState.ts

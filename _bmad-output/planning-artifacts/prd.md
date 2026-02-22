@@ -103,16 +103,16 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ### MVP — Minimum Viable Product (Tier 1)
 
-| Capability      | Details                                                    |
-| --------------- | ---------------------------------------------------------- |
-| Audio Recording | Mic-Only, macOS                                            |
-| Audio Pipeline  | FFmpeg WAV → WebM/Opus                                     |
-| Transkription   | Whisper API (ohne Prompt)                                  |
-| Output          | Clipboard                                                  |
-| UI              | System Tray, HUD (4 States), Snackbar-Notifications        |
-| Shortcuts       | Globale Shortcuts für Recording                            |
-| Settings        | API Key, Recording Mode, Shortcuts                         |
-| Onboarding      | First-Run-Flow, API-Key-Gate, Test-Recording, FFmpeg-Check |
+| Capability      | Details                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| Audio Recording | Mic-Only, macOS                                                          |
+| Audio Pipeline  | FFmpeg WAV → WebM/Opus                                                   |
+| Transkription   | Whisper API (ohne Prompt)                                                |
+| Output          | Clipboard                                                                |
+| UI              | System Tray, HUD (4 States), Snackbar-Notifications                      |
+| Shortcuts       | Globale Shortcuts für Recording                                          |
+| Settings        | API Key, Profile (Recording Mode, Whisper-Modell, Glossar, LLM), Shortcuts, General, Audio, Display |
+| Onboarding      | First-Run-Flow, API-Key-Gate, Test-Recording, BlackHole-Check _(Tier 2)_ |
 
 ### Growth Features — Tier 2
 
@@ -165,7 +165,7 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 **Opening Scene:** App startet. Kein leeres Interface, keine überfordernde Settings-Seite. Ein klarer First-Run-Flow: API Key eingeben.
 
-**Rising Action:** Alex gibt den Key ein. WhisperFlow führt sofort ein Test-Recording durch — 3 Sekunden sprechen, Transkription erscheint. Funktioniert. Shortcut ist gesetzt. FFmpeg-Check läuft automatisch im Hintergrund.
+**Rising Action:** Alex gibt den Key ein. WhisperFlow führt sofort ein Test-Recording durch — 3 Sekunden sprechen, Transkription erscheint. Funktioniert. Shortcut ist gesetzt.
 
 **Climax:** Setup-Flow endet. App zieht sich in den System Tray zurück. Alex sieht: ein kleines Icon. Fertig.
 
@@ -175,11 +175,11 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ### Journey Requirements Summary
 
-| Journey               | Revealed Capabilities                                                   |
-| --------------------- | ----------------------------------------------------------------------- |
-| Diktieren             | Globale Shortcuts, HUD, Clipboard-Output, Mic Recording, Whisper API    |
-| Meeting-Transkription | Dual-Recording, System-Audio-Capture, BlackHole-Integration (Tier 2)    |
-| Onboarding            | API-Key-Gate, Test-Recording, FFmpeg-Check, First-Run-Flow, System Tray |
+| Journey               | Revealed Capabilities                                                |
+| --------------------- | -------------------------------------------------------------------- |
+| Diktieren             | Globale Shortcuts, HUD, Clipboard-Output, Mic Recording, Whisper API |
+| Meeting-Transkription | Dual-Recording, System-Audio-Capture, BlackHole-Integration (Tier 2) |
+| Onboarding            | API-Key-Gate, Test-Recording, First-Run-Flow, System Tray            |
 
 ---
 
@@ -196,6 +196,26 @@ WhisperFlow ist eine Electron-basierte Desktop-Applikation. Die Architektur wird
 - Plattformspezifischer Code (Shortcuts, System Tray, Audio-Capture) wird hinter Abstraktionsschichten gekapselt
 - Electron-Renderer-Code (React) ist vollständig plattformunabhängig
 - Platform-Adapters für macOS-spezifische Features (BlackHole, globale Shortcuts) werden so designed, dass Windows-Äquivalente (WASAPI) später einsteckbar sind
+
+**IPC-Architektur:**
+
+Alle State-Änderungen (Recording-Status, HUD-Zustand, Settings, Snackbar-Queue etc.) fließen ausschließlich über **NanoStores + `@janhendry/nanostore-ipc-bridge`** — automatischer Broadcast an alle Renderer ohne manuelles IPC-Boilerplate.
+
+Für **Audio-Level-Daten** wird ergänzend ein **dedizierter `MessagePort` pro HUD-Renderer-Instanz** eingesetzt — ausschließlich für diesen einen Hochfrequenz-Stream:
+
+- Der HUD-Renderer erhält beim Öffnen einen dedizierten `MessagePort` vom Main Process
+- RMS-Pegel-Werte (berechnet im Main Process) werden als `Float32Array`-Chunks über diesen Channel gestreamt — kein NanoStore-Overhead für Hochfrequenz-Daten
+- `contextIsolation: true` bleibt aktiv; der MessagePort wird sicher via Preload-Script exponiert
+- Cross-Origin-Isolation (COOP/COEP-Header) wird für den HUD-Renderer gesetzt, um `SharedArrayBuffer` als zukünftige Erweiterungsoption offenzuhalten
+
+_Technische Grundlage: [technical-electron-audio-streaming-main-renderer-waveform-research-2026-02-21.md](_bmad-output/planning-artifacts/research/technical-electron-audio-streaming-main-renderer-waveform-research-2026-02-21.md)_
+
+**Audiopegel-Management:**
+
+- Der Main Process liest PCM-Buffer-Chunks vom Audio-Input kontinuierlich aus
+- RMS-Pegel wird pro Chunk berechnet und an den HUD-Renderer gestreamt
+- Der HUD-Renderer visualisiert den Live-Pegel über Canvas + `requestAnimationFrame` (60fps-synchron)
+- Peak-Hold und Clipping-Detection werden im Main Process berechnet, um den Renderer zu entlasten
 
 **Auto-Update:**
 
@@ -225,7 +245,8 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 
 ### Implementation Considerations
 
-- FFmpeg als externe Binary (BYOF-Ansatz) — plattformspezifischer Pfad/Check im Onboarding
+- FFmpeg wird via `ffmpeg-static` npm-Package gebündelt (macOS ARM64/x64, Windows x64) — kein User-Install nötig, `asarUnpack` Pflicht in forge.config.ts
+- BlackHole (System-Audio, Tier 2) ist BYOF — Setup-Anleitung im Onboarding (Tier 2)
 - Globale Shortcuts via Electron-Global-Shortcut API — Accessibility-Permission-Abhängigkeit dokumentiert
 - System-Audio-Capture (Tier 2) ist macOS-spezifisch via BlackHole — Windows-Äquivalent (WASAPI) für Tier 3 vorgesehen
 - Offline-Modus: Online-only via Whisper API bewusst akzeptiert — lokales Whisper-Modell (`whisper.cpp`) ist nicht geplant
@@ -239,17 +260,17 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **FR1:** Nutzer kann eine Mic-Only-Aufnahme über einen globalen Shortcut starten und stoppen
 - **FR2:** Nutzer kann eine System-Audio-Only-Aufnahme über einen globalen Shortcut starten und stoppen _(Tier 2)_
 - **FR3:** Nutzer kann eine Dual-Recording-Aufnahme (Mic + System-Audio gleichzeitig) über einen globalen Shortcut starten und stoppen _(Tier 2)_
-- **FR4:** Nutzer kann den aktiven Recording-Modus in den Settings festlegen
+- **FR4:** Nutzer kann den Recording-Modus pro Profil konfigurieren — das aktive Profil bestimmt den Recording-Modus
 - **FR5:** Das System erkennt verfügbare Audiogeräte automatisch und unterstützt Hot-plug
-- **FR6:** Das System prüft beim Start, ob FFmpeg verfügbar ist, und zeigt bei Fehlen eine Fehlermeldung mit Installationshinweis
+- **FR6:** Das System verifiziert beim Start, dass die gebündelte FFmpeg-Binary ausführbar ist — bei Fehler (korrumpierte Installation) wird eine Fehlermeldung mit Hinweis auf Neuinstallation der App angezeigt
 - **FR7:** Das System prüft beim Start, ob BlackHole verfügbar ist (wenn Dual-/System-Audio-Modus gewählt), und zeigt Setup-Anleitung _(Tier 2)_
 
 ### Transkription
 
 - **FR8:** Das System sendet die aufgenommene Audiodatei nach Ende der Aufnahme an die Whisper API zur Transkription
-- **FR9:** Nutzer kann einen Transcription-Prompt (Stil/Glossar) für die Whisper API konfigurieren _(Tier 2)_
-- **FR10:** Das System kann den transkribierten Text nach der Whisper-Verarbeitung durch ein LLM (GPT) nachbearbeiten lassen _(Tier 2)_
-- **FR11:** Nutzer kann LLM Post-Processing in den Settings aktivieren oder deaktivieren _(Tier 2)_
+- **FR9:** Nutzer kann ein Glossar (Whisper-Kontext-Prompt) pro Profil konfigurieren — Glossare werden in einer Bibliothek verwaltet und sind Bestandteil des aktiven Profils
+- **FR10:** Das System kann den transkribierten Text nach der Whisper-Verarbeitung durch ein LLM (GPT) nachbearbeiten lassen
+- **FR11:** Nutzer kann LLM Post-Processing pro Profil aktivieren oder deaktivieren (ON/OFF Switch)
 
 ### Output & Clipboard
 
@@ -267,7 +288,9 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 
 ### HUD & Feedback
 
-- **FR20:** Das System zeigt ein HUD mit dem Status "Recording" während einer aktiven Aufnahme
+- **FR20:** Das System zeigt ein HUD mit dem Status "Recording" während einer aktiven Aufnahme — inklusive Live-Audiopegel-Visualisierung (Level Meter), damit der Nutzer sofortiges visuelles Feedback erhält, dass das Mikrofon aktives Signal empfängt
+- **FR20a:** Das HUD zeigt einen animierten Audiopegel-Indikator (Level Meter) in Echtzeit während der Aufnahme — der Pegel wird kontinuierlich vom Main Process über einen dedizierten MessagePort-Channel gestreamt und via Canvas dargestellt
+- **FR20b:** Das HUD zeigt Clipping-Feedback (visueller Hinweis) wenn der Eingangspegel den Maximalwert überschreitet, damit der Nutzer die Aufnahmedistanz oder Lautstärke anpassen kann
 - **FR21:** Das System zeigt ein HUD mit dem Status "Transcribing" während der API-Verarbeitung
 - **FR22:** Das System zeigt eine Erfolgsbestätigung ("✓") wenn das Transkript in der Zwischenablage ist
 - **FR23:** Das System zeigt eine Fehlermeldung wenn Aufnahme oder Transkription fehlschlägt
@@ -278,22 +301,25 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **FR25:** Nutzer kann seinen OpenAI API Key eingeben und speichern
 - **FR26:** Nutzer kann den Standard-Recording-Modus (Mic/System/Dual) konfigurieren
 - **FR27:** Nutzer kann globale Shortcuts für alle Recording-Aktionen konfigurieren
-- **FR28:** Nutzer kann Sprache/Stil-Präferenz für die Whisper-Transkription konfigurieren _(Tier 2)_
-- **FR29:** Nutzer kann Auto-Cleanup-Regeln für gespeicherte Aufnahmen konfigurieren _(Tier 2)_
+- **FR27a:** Nutzer kann Profile erstellen, bearbeiten, duplizieren und löschen — jedes Profil enthält: Name, Recording Mode, Whisper-Modell, Glossar (optional), LLM ON/OFF, LLM-Modell (optional), System Prompt (optional)
+- **FR27b:** Nutzer kann das aktive Profil über ein Spotlight-style Overlay wechseln (Shortcut: ⌘⇧P)
+- **FR27c:** Nutzer kann System Prompts und Glossare in einer Bibliothek verwalten (erstellen, bearbeiten, löschen) und in Profilen referenzieren
+- **FR28:** Nutzer kann die Transkriptions-Sprache global in Settings → General konfigurieren (Auto-detect oder explizite Sprache)
+- **FR29:** Nutzer kann die Aufbewahrungszeit (TTL) für gespeicherte Aufnahmen in den Settings konfigurieren _(Tier 2)_
 
 ### Onboarding & Erster Start
 
 - **FR30:** Die App erkennt beim ersten Start, dass noch kein API Key konfiguriert ist, und führt den Nutzer durch einen First-Run-Flow
 - **FR31:** Das System fordert beim First-Run aktiv die benötigten macOS-Permissions an (Mikrofon, Accessibility) mit erklärender UI
 - **FR32:** Das System führt nach API-Key-Eingabe automatisch ein Test-Recording durch, um die Konfiguration zu validieren
-- **FR33:** Das System prüft beim Onboarding automatisch die FFmpeg-Verfügbarkeit und zeigt Installationshinweise bei Fehlen
+- **FR33:** Das System prüft beim Onboarding automatisch, ob BlackHole verfügbar ist (für System-Audio-Modus), und zeigt Setup-Anleitung bei Fehlen _(Tier 2)_
 - **FR34:** Nach erfolgreichem Onboarding zieht sich die App in den System Tray zurück
 
-### Storage & Datenverwaltung _(Tier 2)_
+### Storage & Datenverwaltung
 
-- **FR35:** Das System speichert Transkriptionen lokal mit Metadaten (Timestamp, Dauer, Modus)
-- **FR36:** Das System bereinigt gespeicherte Aufnahmen automatisch nach konfigurierbaren Regeln
-- **FR37:** Nutzer kann den Speicherort für Aufnahmen konfigurieren
+- **FR35:** Das System speichert Transkriptionen lokal mit Metadaten (Timestamp, Dauer, Modus) _(Tier 2)_
+- **FR36:** Das System bereinigt Temp-Audiodateien (`recordings/temp/`) automatisch nach einer konfigurierbaren Aufbewahrungszeit — Standard-TTL greift out-of-the-box (Tier 1); Nutzer kann die TTL in den Settings anpassen _(Tier 2)_; Cleanup-Job läuft beim App-Start
+- **FR37:** Nutzer kann den Speicherort für Aufnahmen konfigurieren _(Tier 2)_
 
 ### Auto-Update & Distribution
 
@@ -317,6 +343,12 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **NFR6:** Globale Shortcuts werden nach App-Neustart sowie nach System-Sleep/Wake zuverlässig neu registriert
 - **NFR7:** Ein fehlgeschlagener API-Call (Timeout, Netzwerkfehler) führt zu einer klaren Fehlermeldung — kein stiller Fehler, kein Absturz
 
+### Audio Level Stream Performance
+
+- **NFR9:** Audiopegel-Daten werden mit einer Latenz von unter 50ms vom Main Process an den HUD-Renderer gestreamt — visuelles Feedback ist für den Nutzer wahrnehmbar synchron zur Spracheingabe
+- **NFR10:** Die Audiopegel-Visualisierung läuft mit mindestens 30fps ohne spürbaren CPU-Overhead — der Render-Loop ist via `requestAnimationFrame` auf den Display-Refresh synchronisiert
+- **NFR11:** Der MessagePort-Channel für Audio-Level-Streaming wird beim Schließen des HUD-Fensters sauber terminiert — kein Memory Leak durch offene Ports
+
 ### Accessibility
 
-- **NFR8:** Die App respektiert macOS System-Accessibility-Einstellungen (z.B. Reduced Motion für HUD-Animationen)
+- **NFR12:** Die App respektiert macOS System-Accessibility-Einstellungen (z.B. Reduced Motion für HUD-Animationen und Level-Meter-Animation)

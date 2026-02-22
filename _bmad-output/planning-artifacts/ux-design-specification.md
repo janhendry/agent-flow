@@ -1,5 +1,5 @@
 ---
-stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 inputDocuments:
   - "_bmad-output/planning-artifacts/prd.md"
   - "_bmad-output/planning-artifacts/architecture.md"
@@ -27,6 +27,7 @@ Differenzierer: **Frictionless Availability** — WhisperFlow ist immer verfügb
 ### Target Users
 
 **Primär: Softwareentwickler (macOS)**
+
 - Technisch versiert, keyboard-driven, erwartet native macOS-Qualität
 - Nutzt Voice für Diktate: Commit-Messages, PR-Beschreibungen, Tickets, Slack-Nachrichten, Dokumentation
 - Nutzt Voice für Transkription: Meetings, Calls, Videos
@@ -36,7 +37,7 @@ Differenzierer: **Frictionless Availability** — WhisperFlow ist immer verfügb
 ### Key Design Challenges
 
 1. **Unsichtbarkeit vs. Feedback**: Die App soll im Hintergrund verschwinden — aber der Nutzer braucht klares Feedback über Recording-Status, API-Verarbeitung und Ergebnis. Balance zwischen Minimal-UI und ausreichend Orientierung ist die zentrale UX-Herausforderung.
-2. **Onboarding-Hürde**: Nutzer müssen FFmpeg installieren und einen Whisper API-Key einrichten bevor sie den ersten Mehrwert erleben. Dieser technische Setup muss frictionless, motivierend und fehlerresistent gestaltet sein.
+2. **Onboarding-Hürde**: Nutzer müssen einen Whisper API-Key einrichten bevor sie den ersten Mehrwert erleben. Dieser technische Setup muss frictionless, motivierend und fehlerresistent gestaltet sein. (FFmpeg ist gebündelt — kein User-Install.)
 3. **Fehler-Kommunikation im Kontext**: Fehler (API-Fehler, FFmpeg nicht gefunden, schlechte Aufnahme) passieren während der Nutzer in einer anderen App arbeitet. Nicht-invasive aber wirksame Fehler-Kommunikation ohne Unterbrechung des Workflows.
 
 ### Design Opportunities
@@ -104,13 +105,13 @@ Werkzeug zu benutzen, das von jemandem gebaut wurde, der ihren Workflow versteht
 
 ### Emotional Journey Mapping
 
-| Phase | Gewünschte Emotion | Zu vermeiden |
-|---|---|---|
-| Shortcut drücken | Sofortige Bestätigung, Sicherheit | Unsicherheit ob es losging |
-| Während der Aufnahme (Pegel sichtbar) | Vertrauen, Fokus | Zweifel, Ablenkung |
-| State-Wechsel zu Transcribing | Entspannung, Erwartung | Dead-Air, Angst |
-| Success-State | Satisfying Abschluss, Zufriedenheit | Anticlimactic |
-| Fehlerfall | Klarheit, Handlungsfähigkeit | Frustration, Ratlosigkeit |
+| Phase                                 | Gewünschte Emotion                  | Zu vermeiden               |
+| ------------------------------------- | ----------------------------------- | -------------------------- |
+| Shortcut drücken                      | Sofortige Bestätigung, Sicherheit   | Unsicherheit ob es losging |
+| Während der Aufnahme (Pegel sichtbar) | Vertrauen, Fokus                    | Zweifel, Ablenkung         |
+| State-Wechsel zu Transcribing         | Entspannung, Erwartung              | Dead-Air, Angst            |
+| Success-State                         | Satisfying Abschluss, Zufriedenheit | Anticlimactic              |
+| Fehlerfall                            | Klarheit, Handlungsfähigkeit        | Frustration, Ratlosigkeit  |
 
 ### Micro-Emotions
 
@@ -149,36 +150,42 @@ Werkzeug zu benutzen, das von jemandem gebaut wurde, der ihren Workflow versteht
 ### Inspiring Products Analysis
 
 **Raycast**
+
 - Keyboard-first, erscheint on-demand und verschwindet ohne Spur
 - Blitzschnelle Reaktionszeit — keine wahrnehmbare Latenz nach Shortcut
 - Animationen sind präzise und minimal, kommunizieren Qualität ohne abzulenken
 - Fehler-Handling klar und handlungsorientiert
-- *Relevanz für WhisperFlow*: Der gesamte Interaction-Ansatz — App als OS-Extension, nicht als eigenständige Anwendung
+- _Relevanz für WhisperFlow_: Der gesamte Interaction-Ansatz — App als OS-Extension, nicht als eigenständige Anwendung
 
 **Linear**
+
 - Dark-mode-first, hochpräzises visuelles Design ohne Verspieltheit
 - Jede Interaktion fühlt sich durchdacht an — kein Feature wirkt angeheftet
 - Subtile Micro-Animationen die Zustandsänderungen kommunizieren
-- *Relevanz für WhisperFlow*: Visuelles Qualitätsniveau und Ton für dark-mode HUD-Design
+- _Relevanz für WhisperFlow_: Visuelles Qualitätsniveau und Ton für dark-mode HUD-Design
 
 **macOS Native UI-Conventions (Spotlight, Notification Center)**
+
 - Passives Overlay-Verhalten — erscheint, informiert, verschwindet
 - System-integriertes Look & Feel schafft sofortiges Vertrauen
-- *Relevanz für WhisperFlow*: HUD-Verhalten und Positionierung
+- _Relevanz für WhisperFlow_: HUD-Verhalten und Positionierung
 
 ### Transferable UX Patterns
 
 **Overlay/HUD-Patterns:**
+
 - Zentriertes oder Ecken-positioniertes Overlay mit definiertem Z-Index über allem
 - Auto-dismiss nach Success mit kurzer Verzögerung (1–2 Sek.)
 - Smooth fade-in/out — nie abruptes Erscheinen oder Verschwinden
 
 **Audio-Feedback-Patterns:**
+
 - Echtzeit-Pegel als animierte Bars oder Wellenform (vertikal reagierend auf Amplitude)
 - Visueller Unterschied zwischen "Stille erkannt" und "Aktive Aufnahme"
 - Timer-Anzeige während Recording für Orientierung
 
 **State-Transition-Patterns:**
+
 - Klare visuelle Unterscheidung zwischen Recording (aktiv/rot) → Transcribing (neutral/spinner) → Done (grün/check)
 - Transition-Animationen zwischen States: 150–200ms ease-out
 
@@ -193,14 +200,17 @@ Werkzeug zu benutzen, das von jemandem gebaut wurde, der ihren Workflow versteht
 ### Design Inspiration Strategy
 
 **Übernehmen:**
+
 - Raycast's Keyboard-first-Philosophie: WhisperFlow ist ein OS-Feature, keine App
 - Linear's dunkles, präzises visuelles System als Vorbild für Farbpalette und Typografie
 
 **Adaptieren:**
+
 - Spotlight's Overlay-Positionierung: angepasst für persistente State-Anzeige statt Input-Feld
 - Raycast's Animations-Timing: auf Audio-Feedback-Kontext angepasst (reaktiver, lebendiger)
 
 **Vermeiden:**
+
 - Jede Form von Gamification oder "Achievement"-Feedback
 - Bunte Farbpaletten oder illustrative Elemente
 - Interaktive Elemente im HUD-Overlay
@@ -259,6 +269,7 @@ nicht als App, nicht als Service, sondern als erweiterte OS-Funktion.
 Mentales Modell: "Ich drücke Cmd+Shift+Space wie ich Cmd+C drücke — nur spreche ich statt zu tippen."
 
 Existing frustrations mit aktuellen Lösungen:
+
 - Kontextwechsel zu einer dedizierten App unterbricht den Flow
 - Unklares Feedback ob die Aufnahme läuft
 - Schlechte Qualität für technischen Wortschatz
@@ -274,6 +285,7 @@ Existing frustrations mit aktuellen Lösungen:
 ### 2.4 Novel UX Patterns
 
 WhisperFlow kombiniert bekannte Patterns neu:
+
 - **Spotlight-Metapher** (unsichtbar bis gebraucht) + **Recording-Mechanic** (aktiver Prozess)
 - Das HUD ist kein Fenster — es ist temporäres Feedback-Overlay ohne Interaktionsfläche
 - Keine bekannte App kombiniert diese beiden Patterns auf diese Weise für Voice-Input
@@ -281,21 +293,26 @@ WhisperFlow kombiniert bekannte Patterns neu:
 ### 2.5 Experience Mechanics
 
 **Initiation:**
+
 - Default-Modus: **Toggle** — erster Shortcut startet Recording, zweiter stoppt
 - Begründung: Toggle unterstützt sowohl kurze Diktate als auch längere Meeting-Transkriptionen
-- Alternativer Push-to-Talk-Modus in Settings wählbar
+- Alternativer Push-to-Talk-Modus in Settings → General wählbar
+- **Recording Mode** wird pro Profil konfiguriert (Settings → Profile) — kein globaler Mode mehr
 
 **Interaction:**
+
 - HUD erscheint sofort am konfigurierten Bildschirmort (konfigurierbar in Settings)
 - HUD zeigt: Recording-State-Label + Echtzeit-Audio-Pegel (Bars/Wellenform) + Timer
 - Kein Klick, kein Hover, keine Interaktion mit dem HUD während der Aufnahme
 
 **Feedback während Recording:**
+
 - Audio-Pegel-Visualisierung reagiert live auf Mikrofon/System-Audio
 - Timer zeigt Aufnahmedauer
 - Visueller Unterschied: aktive Stimme vs. Stille erkennbar
 
 **Completion:**
+
 - Zweiter Shortcut → HUD wechselt zu "Transcribing"-State (Spinner/Animation)
 - Nach erfolgreicher Transkription: Success-State mit kurzer Animation
 - Auto-dismiss nach ~1,5 Sek. — Text ist bereits in der Zwischenablage
@@ -307,42 +324,45 @@ WhisperFlow kombiniert bekannte Patterns neu:
 
 **Palette — Dark-first, Professional:**
 
-| Token | Wert | Verwendung |
-|---|---|---|
-| `background` | `#0A0A0B` | App-Hintergrund, HUD-Basis |
-| `surface` | `#141415` | Karten, Panels, HUD-Container |
-| `border` | `#2A2A2D` | Subtile Trenner, Outlines |
-| `text-primary` | `#FAFAFA` | Primärer Text, hoher Kontrast |
-| `text-muted` | `#8A8A8E` | Labels, sekundäre Beschriftungen |
-| `accent` | `#6366F1` | Indigo — Primär-Akzent, interaktive Elemente |
-| `recording` | `#EF4444` | Rot — Recording-State, universelles Signal |
-| `success` | `#22C55E` | Grün — Success-State, Completion |
-| `warning` | `#F59E0B` | Amber — Warnungen, Hinweise |
-| `error` | `#EF4444` | Identisch mit recording — konsistentes Rot |
+| Token          | Wert      | Verwendung                                   |
+| -------------- | --------- | -------------------------------------------- |
+| `background`   | `#0A0A0B` | App-Hintergrund, HUD-Basis                   |
+| `surface`      | `#141415` | Karten, Panels, HUD-Container                |
+| `border`       | `#2A2A2D` | Subtile Trenner, Outlines                    |
+| `text-primary` | `#FAFAFA` | Primärer Text, hoher Kontrast                |
+| `text-muted`   | `#8A8A8E` | Labels, sekundäre Beschriftungen             |
+| `accent`       | `#6366F1` | Indigo — Primär-Akzent, interaktive Elemente |
+| `recording`    | `#EF4444` | Rot — Recording-State, universelles Signal   |
+| `success`      | `#22C55E` | Grün — Success-State, Completion             |
+| `warning`      | `#F59E0B` | Amber — Warnungen, Hinweise                  |
+| `error`        | `#EF4444` | Identisch mit recording — konsistentes Rot   |
 
 **Semantic Mapping:**
+
 - HUD Recording-State: `recording` (#EF4444) als dominante Farbe
 - HUD Transcribing-State: `accent` (#6366F1) + Spinner
 - HUD Success-State: `success` (#22C55E) + kurze Animation
 - HUD Error-State: `error` + menschlicher Hinweistext
 
 **Accessibility:**
+
 - Alle Text/Hintergrund-Kombinationen erfüllen WCAG AA (Kontrast ≥ 4.5:1)
 - `text-primary` auf `background`: ~15:1 — herausragend
 - `text-muted` auf `surface`: ~4.6:1 — AA-compliant
 
 ### Typography System
 
-| Rolle | Font | Größe | Gewicht | Verwendung |
-|---|---|---|---|---|
-| HUD State Label | Inter | 13px | 500 | "Recording...", "Transcribing..." |
-| HUD Timer | Inter | 12px | 400 | Aufnahmedauer |
-| Notification/Snackbar | Inter | 13px | 400 | Kurze System-Meldungen |
-| Settings Heading | Inter | 16px | 600 | Abschnitts-Überschriften |
-| Settings Body | Inter | 13px | 400 | Erklärungstexte |
-| Settings Mono | JetBrains Mono | 12px | 400 | API-Keys, technische Werte |
+| Rolle                 | Font           | Größe | Gewicht | Verwendung                        |
+| --------------------- | -------------- | ----- | ------- | --------------------------------- |
+| HUD State Label       | Inter          | 13px  | 500     | "Recording...", "Transcribing..." |
+| HUD Timer             | Inter          | 12px  | 400     | Aufnahmedauer                     |
+| Notification/Snackbar | Inter          | 13px  | 400     | Kurze System-Meldungen            |
+| Settings Heading      | Inter          | 16px  | 600     | Abschnitts-Überschriften          |
+| Settings Body         | Inter          | 13px  | 400     | Erklärungstexte                   |
+| Settings Mono         | JetBrains Mono | 12px  | 400     | API-Keys, technische Werte        |
 
 **Begründung:**
+
 - **Inter**: Hervorragende Lesbarkeit bei kleinen Größen, macOS-nativ ähnlich, modern professional
 - **JetBrains Mono**: Für technische Inhalte (API-Keys, Shortcuts) — Entwickler erkennen und schätzen es
 
@@ -350,16 +370,17 @@ WhisperFlow kombiniert bekannte Patterns neu:
 
 **Base Unit: 4px**
 
-| Token | Wert | Verwendung |
-|---|---|---|
-| `space-1` | 4px | Minimaler Innenabstand, Icon-Gap |
-| `space-2` | 8px | Kompakte Elemente |
-| `space-3` | 12px | Standard-Padding |
-| `space-4` | 16px | Sektionstrennung |
-| `space-6` | 24px | Große Sektionen |
-| `space-8` | 32px | Seitenränder |
+| Token     | Wert | Verwendung                       |
+| --------- | ---- | -------------------------------- |
+| `space-1` | 4px  | Minimaler Innenabstand, Icon-Gap |
+| `space-2` | 8px  | Kompakte Elemente                |
+| `space-3` | 12px | Standard-Padding                 |
+| `space-4` | 16px | Sektionstrennung                 |
+| `space-6` | 24px | Große Sektionen                  |
+| `space-8` | 32px | Seitenränder                     |
 
 **HUD-Dimensionen:**
+
 - Breite: 280px (fix) — kompakt, nicht überwältigend
 - Höhe: variabel je State, ~80–96px
 - Border-radius: 12px — modern, nicht eckig
@@ -379,12 +400,12 @@ WhisperFlow kombiniert bekannte Patterns neu:
 
 Vier HUD-Richtungen wurden evaluiert:
 
-| Direction | Form | Größe | Pegel-Feedback |
-|---|---|---|---|
-| A — Floating Pill | Pill/Kapsel | Kompakt | Bars (vertikal) |
-| B — Rounded Card | Karte | Mittel | Volle Wellenform |
-| C — Corner Badge | Micro-Pill | Minimal | Mini-Bars |
-| D — Spotlight Modal | Breite Card | Groß | Breite Wellenform |
+| Direction           | Form        | Größe   | Pegel-Feedback    |
+| ------------------- | ----------- | ------- | ----------------- |
+| A — Floating Pill   | Pill/Kapsel | Kompakt | Bars (vertikal)   |
+| B — Rounded Card    | Karte       | Mittel  | Volle Wellenform  |
+| C — Corner Badge    | Micro-Pill  | Minimal | Mini-Bars         |
+| D — Spotlight Modal | Breite Card | Groß    | Breite Wellenform |
 
 Interaktiver HTML-Showcase: `_bmad-output/planning-artifacts/ux-design-directions.html`
 
@@ -394,12 +415,12 @@ Interaktiver HTML-Showcase: `_bmad-output/planning-artifacts/ux-design-direction
 
 Das HUD erscheint als schmale Pill-Form mit State-Differenzierung durch rein visuelle Mittel:
 
-| State | Darstellung |
-|---|---|
-| Recording | Graue Bars (`#5A5A62`), animiert nach Audio-Amplitude — kein Icon, kein Text |
-| Transcribing | Drei pulsierende Indigo-Dots — kein Spinner |
-| Success | Grüner Check-Icon, Pop-Animation, auto-dismiss nach 1,5s |
-| Error | Warn-Icon + Text „Error" — einziger State mit Text |
+| State        | Darstellung                                                                  |
+| ------------ | ---------------------------------------------------------------------------- |
+| Recording    | Graue Bars (`#5A5A62`), animiert nach Audio-Amplitude — kein Icon, kein Text |
+| Transcribing | Drei pulsierende Indigo-Dots — kein Spinner                                  |
+| Success      | Grüner Check-Icon, Pop-Animation, auto-dismiss nach 1,5s                     |
+| Error        | Warn-Icon + Text „Error" — einziger State mit Text                           |
 
 ### Design Rationale
 
@@ -408,7 +429,6 @@ Das HUD erscheint als schmale Pill-Form mit State-Differenzierung durch rein vis
 - **Grau als neutrale Pegel-Farbe**: Rot bleibt exklusiv für Fehlerzustände reserviert
 - **Passt zur Raycast/Linear-Ästhetik**: Dezent, professionell, verschwindet nach getaner Arbeit
 - **HUD-Position**: konfigurierbar in Settings (Default: Bottom Center)
-
 
 ## User Journey Flows
 
@@ -474,25 +494,26 @@ flowchart TD
 
 ### Journey Patterns
 
-| Pattern | Beschreibung |
-|---|---|
-| **Zero-UI-Success** | Erfolg kommuniziert sich selbst — keine Interaktion nötig |
-| **Non-Blocking Error** | Fehler blockiert nie — nächster Hotkey-Press überschreibt den State |
-| **Hotkey-Konsistenz** | Eine Taste für alles: Start, Stop, Error-Dismiss |
+| Pattern                       | Beschreibung                                                        |
+| ----------------------------- | ------------------------------------------------------------------- |
+| **Zero-UI-Success**           | Erfolg kommuniziert sich selbst — keine Interaktion nötig           |
+| **Non-Blocking Error**        | Fehler blockiert nie — nächster Hotkey-Press überschreibt den State |
+| **Hotkey-Konsistenz**         | Eine Taste für alles: Start, Stop, Error-Dismiss                    |
 | **Settings als Escape-Hatch** | Tiefere Korrekturen (API-Key, Mikrofon, Setup) laufen über Settings |
 
 ## Component Strategy
 
 ### Design System Components (Radix UI — direkt nutzbar)
 
-| Component | Verwendung |
-|---|---|
-| `Switch` | Settings-Toggles (Transcript Overlay, Push-to-Talk, Auto-Launch) |
-| `TextField` | API-Key-Input |
-| `Select` | HUD-Position, Audio-Device-Auswahl |
-| `Tabs` | Settings-Navigation (General / Shortcuts / API Key / Audio / Display) |
-| `Tooltip` | Hotkey-Hints in der App |
-| `Dialog` | Onboarding-Flow-Container |
+| Component   | Verwendung                                                            |
+| ----------- | --------------------------------------------------------------------- |
+| `Switch`    | Settings-Toggles (Transcript Overlay, Push-to-Talk, Auto-Launch, LLM pro Profil) |
+| `TextField` | API-Key-Input, Profil-Name, System-Prompt-Name, Glossar-Name          |
+| `Select`    | HUD-Position, Audio-Device-Auswahl, Whisper-Modell, LLM-Modell        |
+| `Tabs`      | Settings-Navigation (General / Shortcuts / Profile / System Prompts / Glossare / API Key / Audio / Display / About) |
+| `Textarea`  | System-Prompt-Text, Glossar-Text                                      |
+| `Tooltip`   | Hotkey-Hints in der App                                               |
+| `Dialog`    | Onboarding-Flow-Container                                             |
 
 ### Custom Components
 
@@ -539,11 +560,11 @@ flowchart TD
 
 ### Implementation Roadmap
 
-| Phase | Components | Kritisch für |
-|---|---|---|
-| **Phase 1 — Core** | `HUDOverlay`, `AudioLevelBars` | Recording Loop |
-| **Phase 2 — Settings** | `KeyboardBadge`, Radix `Tabs/Switch/Select` | Konfiguration |
-| **Phase 3 — Onboarding** | `OnboardingFlow`, `TranscriptOverlay` | First Run |
+| Phase                    | Components                                  | Kritisch für   |
+| ------------------------ | ------------------------------------------- | -------------- |
+| **Phase 1 — Core**       | `HUDOverlay`, `AudioLevelBars`              | Recording Loop |
+| **Phase 2 — Settings**   | `KeyboardBadge`, Radix `Tabs/Switch/Select` | Konfiguration  |
+| **Phase 3 — Onboarding** | `OnboardingFlow`, `TranscriptOverlay`       | First Run      |
 
 ## UX Consistency Patterns
 
@@ -551,13 +572,13 @@ flowchart TD
 
 Alle Feedback-States folgen demselben Prinzip: **passiv, nicht-blockierend, visuell eindeutig.**
 
-| State | Wo | Darstellung |
-|---|---|---|
-| Erfolg | HUD | Grüner Check-Icon, auto-dismiss 1,5s |
-| Fehler (HUD) | HUD | Warn-Icon + „Error", bleibt bis nächste Aktion |
-| Fehler (Settings) | Inline unter dem Feld | Roter Text, kein Modal |
-| Validierung (pending) | Inline | Indigo-Spinner neben dem Feld |
-| Validierung (Erfolg) | Inline | Grüner Check neben dem Feld |
+| State                 | Wo                    | Darstellung                                    |
+| --------------------- | --------------------- | ---------------------------------------------- |
+| Erfolg                | HUD                   | Grüner Check-Icon, auto-dismiss 1,5s           |
+| Fehler (HUD)          | HUD                   | Warn-Icon + „Error", bleibt bis nächste Aktion |
+| Fehler (Settings)     | Inline unter dem Feld | Roter Text, kein Modal                         |
+| Validierung (pending) | Inline                | Indigo-Spinner neben dem Feld                  |
+| Validierung (Erfolg)  | Inline                | Grüner Check neben dem Feld                    |
 
 **Regel:** Fehler erscheinen immer dort, wo sie entstehen — nie als globales Modal.
 
@@ -585,11 +606,11 @@ Alle Feedback-States folgen demselben Prinzip: **passiv, nicht-blockierend, visu
 
 ### Button-Hierarchie
 
-| Ebene | Stil | Verwendung |
-|---|---|---|
-| **Primary** | Indigo-Hintergrund, weißer Text | Hauptaktion pro Screen (z.B. „Speichern", „Weiter") |
-| **Secondary** | Transparenter Hintergrund, Border | Nebenaktionen (z.B. „Abbrechen", „Zurück") |
-| **Ghost** | Nur Text, kein Border | Tertiäre Aktionen, Settings-Links |
+| Ebene         | Stil                              | Verwendung                                          |
+| ------------- | --------------------------------- | --------------------------------------------------- |
+| **Primary**   | Indigo-Hintergrund, weißer Text   | Hauptaktion pro Screen (z.B. „Speichern", „Weiter") |
+| **Secondary** | Transparenter Hintergrund, Border | Nebenaktionen (z.B. „Abbrechen", „Zurück")          |
+| **Ghost**     | Nur Text, kein Border             | Tertiäre Aktionen, Settings-Links                   |
 
 **Regel:** Pro Screen/Step maximal ein Primary-Button.
 
@@ -611,10 +632,10 @@ Alle Feedback-States folgen demselben Prinzip: **passiv, nicht-blockierend, visu
 
 ### Loading / Validation States
 
-| Situation | Pattern |
-|---|---|
-| API-Key wird validiert | Spinner inline neben Feld, Button disabled |
-| Mikrofon-Check läuft | Pulsierendes Icon, Text „Wird geprüft..." |
+| Situation                   | Pattern                                     |
+| --------------------------- | ------------------------------------------- |
+| API-Key wird validiert      | Spinner inline neben Feld, Button disabled  |
+| Mikrofon-Check läuft        | Pulsierendes Icon, Text „Wird geprüft..."   |
 | Test-Aufnahme in Onboarding | HUD-Component direkt im Onboarding sichtbar |
 
 ### Allgemeine Konsistenz-Regeln
@@ -637,12 +658,14 @@ WhisperFlow ist macOS-exklusiv. Klassisches responsive Design (Mobile/Tablet-Bre
 ### Fenster-Strategie
 
 **Settings-Fenster:**
+
 - Mindestgröße: **700×500px** (Electron `minWidth`/`minHeight`)
 - Skalierbar nach oben — Layout nutzt verfügbaren Raum
 - Sidebar bleibt fix (220px), Content-Bereich wächst
 - Kein horizontales Scrolling innerhalb des Content-Bereichs
 
 **HUD-Overlay:**
+
 - Feste Größe, nicht skalierbar
 - Position konfigurierbar in Settings
 - Immer `always-on-top`, `click-through` im Idle-State
@@ -656,21 +679,512 @@ WhisperFlow ist macOS-exklusiv. Klassisches responsive Design (Mobile/Tablet-Bre
 ### Accessibility-Strategie (MVP)
 
 **In Scope:**
+
 - WCAG AA Kontrast für alle Text/Hintergrund-Kombinationen (bereits im Farbsystem sichergestellt)
 - Vollständige Keyboard-Navigation (Tab, Enter, Escape, Pfeiltasten)
 - Sichtbarer Focus-Ring auf allen interaktiven Elementen (Indigo, 2px)
 - `prefers-reduced-motion`: Alle CSS-Animationen deaktiviert wenn aktiv
 
 **Out of Scope (MVP):**
+
 - VoiceOver-Kompatibilität
 - ARIA-Vollständigkeit über Radix UI Built-ins hinaus
 - WCAG AAA
 
 ### Keyboard-Navigation-Spezifikation
 
+| Taste               | Aktion                                                 |
+| ------------------- | ------------------------------------------------------ |
+| `Tab` / `Shift+Tab` | Navigation zwischen Elementen                          |
+| `Enter` / `Space`   | Aktion ausführen                                       |
+| `Escape`            | Abbrechen / Settings schließen / Onboarding verlassen  |
+| Globaler Hotkey     | Recording starten/stoppen (systemweit, konfigurierbar) |
+
+## History Overlay
+
+### Konzept & Kontext
+
+Das History Overlay ermöglicht schnellen Zugriff auf vergangene Transkriptionen — ohne die laufende Arbeit zu unterbrechen. Es folgt dem Spotlight-Paradigma: zentriertes Overlay über allem, Search direkt im Fokus, Tastatur-first. Der Nutzer drückt `Cmd+Shift+H`, sieht sofort die jüngste Transkription highlighted und kann per Pfeiltasten + Enter in Sekunden zugreifen.
+
+Kernprinzip: **Das Overlay erscheint, liefert, verschwindet.** Kein Fenster öffnen, kein Klicken, kein Kontextwechsel.
+
+---
+
+### Trigger & Positionierung
+
+- **Shortcut:** `Cmd+Shift+H` (konfigurierbar in Settings → Shortcuts)
+- **Fenstertyp:** Electron `BrowserWindow`, `always-on-top`, `click-through` außerhalb des Overlays
+- **Position:** Konfigurierbar in Settings — identische Optionen wie beim HUD (Default: `center`)
+  - `center` — Bildschirmmitte horizontal, leicht oberhalb der Mitte vertikal (~40% von oben)
+  - `top` — Oberes Drittel des Screens, zentriert horizontal
+  - `mouse-cursor` — Nahe der aktuellen Mausposition, mit Screen-Edge-Detection
+
+---
+
+### Visuelle Spezifikation
+
+**Container:**
+
+| Property        | Wert                           |
+| --------------- | ------------------------------ |
+| Breite          | 720px (fix)                    |
+| Max-Höhe        | 560px (danach scrollbar)       |
+| Border-radius   | 14px                           |
+| Hintergrund     | `#141415` (`surface`)          |
+| Border          | 1px solid `#2A2A2D` (`border`) |
+| Shadow          | `0 20px 60px rgba(0,0,0,0.6)`  |
+| Backdrop-filter | `blur(20px)` — Glass-Effekt    |
+
+**Search-Input (oben):**
+
+| Property    | Wert                                                           |
+| ----------- | -------------------------------------------------------------- |
+| Höhe        | 52px                                                           |
+| Hintergrund | `#0A0A0B` (`background`)                                       |
+| Font        | Inter 15px, weight 400                                         |
+| Placeholder | `„Transkriptionen durchsuchen..."` (grau `#8A8A8E`)            |
+| Icon links  | Lupe-Icon, `#8A8A8E`, 16px                                     |
+| Trenner     | 1px `border` Linie unter dem Input                             |
+| Focus-Ring  | Kein äußerer Focus-Ring — das Feld ist beim Öffnen immer aktiv |
+
+**Listenbereich:**
+
+- Direkt unter dem Search-Input
+- Scrollbar (native macOS-Scrollbar, overlay-style — erscheint nur beim Scrollen)
+- Kein festes Eintrags-Limit — alle Einträge der History ladbar
+- **Keine Trennlinien** zwischen Einträgen — nur Whitespace als Trenner (Raycast-artig)
+- Padding: 4px vertikal, 0 horizontal
+
+---
+
+### Listeneintrag Anatomie
+
+Jeder Eintrag ist **48px hoch**, Single-Line-Layout mit drei Zonen:
+
+**Drei-Zonen-Layout (links → mitte → rechts):**
+
+| Zone             | Position        | Inhalt                             | Stil                                 |
+| ---------------- | --------------- | ---------------------------------- | ------------------------------------ |
+| **Icon-Badge**   | Links fix       | Recording-Mode-Icon, 20×20px Badge | `#1E1E24` Badge-BG, Icon `#8A8A8E`   |
+| **Preview-Text** | Mitte flex-grow | Erste 100 Zeichen + `…`            | Inter 13px, `#FAFAFA`, single-line   |
+| **Meta rechts**  | Rechts fix      | Timestamp · Modus-Label            | Inter 11px, `#5A5A62`, flex-shrink 0 |
+
+**Icon-Badge (linke Spalte):**
+
+- Größe: 20×20px, Border-radius 6px
+- Hintergrund: `#1E1E24`
+- Icon: 12px SVG, Farbe `#8A8A8E`
+- Kein Text-Label im Badge
+
+| Modus          | Icon-Variante   |
+| -------------- | --------------- |
+| Mikrofon       | Mic-Icon        |
+| System-Output  | Monitor-Icon    |
+| Dual Recording | Merge/Dual-Icon |
+
+**Hover-State:**
+
+- Hintergrund: `#1A1A1C`
+- Kein Border, kein Scale
+
+**Highlight-State (aktiver Eintrag) — stark:**
+
+- Hintergrund: `#25253A` — deutliches Indigo-Tint, klar sichtbar
+- Linke Border: 2px solid `#6366F1` (accent)
+- Preview-Text: `#FFFFFF` (maximale Helligkeit)
+- Meta rechts: `#8A8A8E` (etwas heller als Normalzustand)
+- Icon-Badge Hintergrund: `#2D2D4A` (hellt sich mit Eintrag auf)
+
+---
+
+### Layout-Struktur (ASCII)
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  [Lupe]  Transkriptionen durchsuchen...                                  │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│▌ [Dual] Meeting Notes - Product Roadmap Q1 war das wichtigste…  5 Min · Dual │  ← highlighted
+│                                                                          │
+│  [Mic]  Commit message for auth refactor: fix token refresh rac…  18 Min · Mic │
+│                                                                          │
+│  [Mic]  Email to the team about the monday deadline extension r…  1 Std · Mic  │
+│                                                                          │
+│  [Out]  Zoom call transcript: wir müssen das bis Ende der Woch…  3 Std · Out  │
+│                                                                          │
+│  [Mic]  PR description for the new onboarding flow implementat…  Gestern · Mic │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+                      ↑↓ Navigieren · ⏎ Kopieren · ⎋ Schließen
+```
+
+Footer: Inter 11px, `#5A5A62`, zentriert außerhalb des Containers — verschwindet mit dem Overlay.
+
+---
+
+### Keyboard-Navigation
+
+| Taste         | Aktion                                                                    |
+| ------------- | ------------------------------------------------------------------------- |
+| `↓`           | Ersten Eintrag aktivieren (wenn Search fokussiert) / zum nächsten Eintrag |
+| `↑`           | Zum vorherigen Eintrag / bei erstem Eintrag: Fokus zurück in Search-Input |
+| `Enter`       | Aktiven Eintrag in Clipboard kopieren, Overlay schließt sich              |
+| `ESC`         | Overlay schließt sich ohne Aktion                                         |
+| Tippen        | Fokus bleibt automatisch im Search-Input, Liste filtert sofort            |
+| `Cmd+Shift+H` | Schließt das Overlay wenn es bereits offen ist (Toggle)                   |
+
+**Initialzustand beim Öffnen:**
+
+1. Search-Input hat Cursor-Fokus
+2. Erster Eintrag (jüngste Transkription) ist sofort highlighted
+3. Tippen filtert die Liste sofort — kein explizites Klicken in den Input nötig
+
+---
+
+### Search-Verhalten
+
+- **Type-to-Search:** Tippen filtert die Liste in Echtzeit (kein Submit nötig)
+- **Filter-Logik:** Fuzzy Search — Zeichen müssen in richtiger Reihenfolge im Text vorkommen, aber nicht zusammenhängend (`mtng` trifft `meeting notes`). Ergebnisse werden nach Relevanz sortiert (Treffer-Dichte, Position im Text).
+- **Kein Ergebnis:** Leerer State mit zentriertem Text `„Keine Transkriptionen gefunden"` — `text-muted`
+- **Match-Highlighting:** Gematchte Einzel-Zeichen im Preview-Text werden mit `#6366F1` (accent) markiert
+- **Bei aktivem Filter:** Erster Treffer (höchste Relevanz) ist highlighted
+
+---
+
+### Animationen & Transitions
+
+| Event             | Animation                                                 | Dauer          |
+| ----------------- | --------------------------------------------------------- | -------------- |
+| Overlay öffnet    | Fade-in + Scale 0.96 → 1.0 (transform-origin: top center) | 150ms ease-out |
+| Overlay schließt  | Fade-out + Scale 1.0 → 0.96                               | 100ms ease-in  |
+| Liste filtert     | Einträge: opacity 0 → 1                                   | 80ms           |
+| Highlight springt | Hintergrundfarbe cross-fade                               | 60ms           |
+
+`prefers-reduced-motion`: Alle Animationen deaktiviert — reines Fade ohne Scale.
+
+---
+
+### Custom Component: `HistoryOverlay`
+
+**Electron BrowserWindow-Konfiguration:**
+
+```typescript
+{
+  width: 720,
+  height: 600,
+  frame: false,
+  transparent: true,
+  alwaysOnTop: true,
+  skipTaskbar: true,
+  resizable: false,
+  vibrancy: 'under-window',
+}
+```
+
+**React Component-Struktur:**
+
+```
+<HistoryOverlay>
+  <SearchInput />
+  <TranscriptList>
+    <TranscriptEntry>
+      <ModeBadge />      // 20x20px Icon-Badge, linke Spalte
+      <PreviewText />    // 100 Zeichen + ..., flex-grow
+      <EntryMeta />      // Timestamp · Modus, rechts
+    </TranscriptEntry>
+    ...
+  </TranscriptList>
+  <KeyboardHint />
+</HistoryOverlay>
+```
+
+**Settings-Interface:**
+
+```typescript
+interface HistoryOverlaySettings {
+  shortcut: string; // Default: "Cmd+Shift+H"
+  position: "center" | "top" | "mouse-cursor"; // Default: "center"
+}
+```
+
+---
+
+### Abgrenzung zu anderen Komponenten
+
+| Aspekt          | HUD Overlay                      | History Overlay                        |
+| --------------- | -------------------------------- | -------------------------------------- |
+| Zweck           | State-Feedback während Recording | Zugriff auf vergangene Transkriptionen |
+| Inhalt          | Icon / Bars / Animation          | Durchsuchbare Liste mit Text-Preview   |
+| Interaktion     | Passiv, kein Input               | Aktiv, Keyboard-Navigation + Search    |
+| Lebensdauer     | Auto-dismiss nach Success        | Bleibt bis ESC oder Enter              |
+| Auslöser        | Recording-Shortcut               | `Cmd+Shift+H`                          |
+| Electron Window | Separates BrowserWindow          | Separates BrowserWindow                |
+
+---
+
+## Settings Page — Detailspezifikation
+
+### Fenster-Eigenschaften
+
+| Property     | Wert                                      |
+| ------------ | ----------------------------------------- |
+| Mindestgröße | 700×500px (`minWidth` / `minHeight`)      |
+| Skalierbar   | Ja — Layout wächst mit verfügbarem Raum   |
+| Sidebar      | 220px fix links (vertikale Tab-Navigation) |
+| Content-Bereich | Flex-grow, kein horizontales Scrolling |
+
+### Sidebar-Navigation — Tab-Reihenfolge
+
+```
+General
+Shortcuts
+──────────────
+Profile
+System Prompts
+Glossare
+──────────────
+API Key
+Audio
+──────────────
+Display
+About
+```
+
+Trennlinien (`──`) als visuelle Gruppenabgrenzung in der Sidebar.
+
+---
+
+### Tab: General
+
+| Setting | Typ | Default | Detail |
+| --- | --- | --- | --- |
+| Launch at Login | Switch | OFF | App bei macOS-Start automatisch starten |
+| Show HUD | Switch | ON | OFF = komplett kein visuelles Feedback während Recording (Power-User-Modus) |
+| Language | Select | Auto-detect | `Auto-detect · Deutsch · English · Français · Español · Italiano · Português · Japanese · Chinese · Russian` |
+| Push-to-Talk | Switch | ON | ON = Shortcut halten zum Aufnehmen; OFF = Toggle (einmal drücken startet, nochmal drücken stoppt) |
+| Transcript Overlay | Switch | OFF | Kurze Text-Vorschau nach Transkription anzeigen |
+| ↳ Anzeigedauer | TextField (Zahl) | `3` | Immer sichtbar, **disabled** wenn Transcript Overlay OFF — Zahleingabe mit Suffix `„Sek"` |
+
+> **Hinweis:** Recording Mode ist nicht mehr in General — er ist Teil jedes Profils (Tab: Profile).
+
+---
+
+### Tab: Shortcuts
+
+#### Recording
+
+| Shortcut | Default | Detail |
+| --- | --- | --- |
+| Recording (aktueller Mode) | `⌘⇧Space` | Startet Recording im aktiven Profil |
+| ↳ Mic Only | — leer — | Optional — startet **ephemeral** Mic-Only-Aufnahme ohne aktives Profil zu ändern |
+| ↳ System Audio | — leer — | Optional — ephemeral System-Audio-Aufnahme |
+| ↳ Dual (Mic + System) | — leer — | Optional — ephemeral Dual-Aufnahme |
+
+#### Weitere Shortcuts
+
+| Shortcut | Default | Detail |
+| --- | --- | --- |
+| Profil-Wechsel-Overlay | `⌘⇧P` | Öffnet das Profil-Wechsel-Overlay (Spotlight-style) |
+| History Overlay | `⌘⇧H` | Öffnet das History Overlay |
+| Letztes Ergebnis kopieren | — leer — | Kopiert das letzte Transkriptionsergebnis erneut in die Zwischenablage |
+
+#### Konflikt-Verhalten
+
+Wenn ein eingegebener Shortcut bereits systemweit belegt ist:
+- Inline-Warnung direkt unter dem Feld: `„⌘⇧Space wird bereits von [App-Name] verwendet"`
+- Speichern trotzdem möglich — keine Blockierung
+
+#### UI-Pattern: KeyCapture-Feld
+
+Jeder Shortcut wird als `KeyboardBadge` dargestellt. Klick auf `„Ändern"` → Feld wechselt in Capture-Mode:
+- Placeholder: `„Drücke neue Tastenkombination..."`
+- `Escape` → bricht Capture ab, kein Change
+- Leeres Feld (kein Shortcut gesetzt) zeigt `„—"` mit Button `„Festlegen"`
+
+---
+
+### Tab: Profile
+
+**Layout:** Master-Detail — Liste aller Profile links, Edit-Bereich rechts.
+
+#### Profil-Liste (linke Spalte, ~200px)
+
+- Aktives Profil: Indigo-Akzentfarbe + Haken-Icon rechts
+- Jedes Profil: Name + Recording-Mode-Label darunter (klein, grau)
+- Unten: `„+ Neues Profil"` Button (Ghost)
+
+#### Profil-Detail (rechte Spalte)
+
+| Feld | Typ | Detail |
+| --- | --- | --- |
+| Name | TextField | Pflichtfeld |
+| Recording Mode | Select | `Mic Only / System Audio / Dual (Mic + System)` |
+| Whisper Modell | Select | `whisper-1` + zukünftige Modelle per Dropdown |
+| Glossar | Select + | Aus Glossar-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet Glossar-Tab) |
+| LLM Post-Processing | Switch | ON = Transkription wird nach Whisper ans LLM geschickt |
+| ↳ LLM Modell | Select | `gpt-4o / gpt-4o-mini / gpt-4-turbo` — nur sichtbar wenn LLM ON |
+| ↳ System Prompt | Select + | Aus System-Prompt-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet System-Prompts-Tab) — nur sichtbar wenn LLM ON |
+
+#### Aktionen
+
+- **Speichern** (Primary Button) — aktiv nur wenn Änderungen vorhanden
+- **Duplizieren** (Ghost) — erstellt Kopie des Profils
+- **Löschen** (Ghost, destructive rot) — deaktiviert wenn es das letzte Profil ist
+- **Als aktiv setzen** (Secondary) — setzt dieses Profil als aktuell aktives
+
+#### Default-Profil (vorausgefüllt beim ersten Start)
+
+```
+Name: Standard
+Recording Mode: Mic Only
+Whisper Modell: whisper-1
+Glossar: —
+LLM: OFF
+```
+
+---
+
+### Tab: System Prompts
+
+**Layout:** Liste links, Edit-Bereich rechts (identisch zu Profile-Tab-Pattern).
+
+#### System-Prompt-Liste
+
+- Name + erste Zeile des Prompts als Preview (grau, 1 Zeile)
+- `„+ Neuer System Prompt"` Button unten (Ghost)
+
+#### System-Prompt-Detail
+
+| Feld | Typ | Detail |
+| --- | --- | --- |
+| Name | TextField | z.B. `„Bullet Points"`, `„Commit Message"`, `„Grammar Fix"` |
+| Prompt-Text | Textarea (mehrzeilig, ~8 Zeilen) | Der vollständige System Prompt für den LLM |
+
+**Aktionen:** Speichern · Duplizieren · Löschen
+
+> Einträge in Profilen die diesen Prompt verwenden bleiben erhalten — der Prompt-Text wird mitgespeichert.
+
+---
+
+### Tab: Glossare
+
+**Layout:** Identisch zu System-Prompts-Tab.
+
+#### Glossar-Detail
+
+| Feld | Typ | Detail |
+| --- | --- | --- |
+| Name | TextField | z.B. `„Tech-Begriffe"`, `„Medizin"` |
+| Glossar-Text | Textarea (mehrzeilig, ~8 Zeilen) | Whisper-Kontext-Hint — Fachbegriffe, Eigennamen, stilistische Hinweise. Placeholder: `„Kontext oder Fachbegriffe: z.B. WhisperFlow, Electron, React, FFmpeg..."` |
+
+**Aktionen:** Speichern · Duplizieren · Löschen
+
+---
+
+### Tab: API Key
+
+| Setting | Typ | Detail |
+| --- | --- | --- |
+| OpenAI API Key | TextField (type=password) | Toggle-Icon rechts zum Anzeigen/Verbergen — Validierung on-blur |
+| ↳ Verbindung testen | Button (Secondary) | Direkt unter dem Key-Feld — macht kurzen Test-Call zu OpenAI API |
+| ↳ Test-Ergebnis | Inline | Spinner während Test → `✓ Verbunden` (grün) oder `✗ Key ungültig` (rot) |
+
+> **Hinweis:** Whisper Modell und Prompt sind nicht mehr hier — sie sind Teil der Profile.
+
+---
+
+### Tab: Audio
+
+| Setting | Typ | Detail |
+| --- | --- | --- |
+| Mikrofon-Gerät | Select | Alle verfügbaren macOS Mic-Inputs |
+| System-Audio-Gerät | Select | Immer sichtbar — **disabled** wenn aktives Profil = `Mic Only`. Zeigt BlackHole/Loopback-Devices. |
+| Audio testen | Button (toggle) | `„Test starten"` → während Test: `„Test beenden"` |
+| ↳ Pegel-Meter | Live-Visualisierung | Erscheint nur während Test läuft — zeigt das echte FFmpeg-Signal der aktuellen Audio-Konfiguration. 10 vertikale Bars. |
+| ↳ Kein Signal | Inline-Hinweis | `„Kein Signal erkannt — BlackHole konfiguriert?"` (nur wenn Meter flach bleibt) |
+| ↳ Auto-Stop | — | Test stoppt automatisch nach **60 Sekunden** |
+| ↳ Playback | — | Nach Test-Ende: Aufnahme einmal abspielen, dann verwerfen |
+
+**Test-Flow:**
+1. Klick `„Test starten"` → FFmpeg-Aufnahme startet mit aktueller Konfiguration → Pegel-Meter erscheint
+2. Klick `„Test beenden"` (oder Auto-Stop nach 60s) → Aufnahme stoppt
+3. Audio wird einmal abgespielt → verworfen
+
+---
+
+### Tab: Display
+
+| Setting | Typ | Default | Detail |
+| --- | --- | --- | --- |
+| HUD-Position | Select | `Bottom Center` | `Bottom Center / Top Center / Bottom Left / Bottom Right / Top Left / Top Right` |
+| History Overlay Position | Select | `Center` | `Center / Top / Mouse Cursor` |
+| Transcript Overlay Position | Select | `Bottom Center` | `Bottom Center / Top Center / Bottom Left / Bottom Right / Top Left / Top Right` |
+| Appearance | Select | `System (Auto)` | `System (Auto) / Light / Dark` — überschreibt macOS Theme wenn explizit gewählt |
+
+---
+
+### Tab: About
+
+| Element | Typ | Detail |
+| --- | --- | --- |
+| App-Name + Version | Text | z.B. `WhisperFlow 1.0.0` — groß, zentriert oben |
+| Nach Updates suchen | Button (Secondary) | Prüft auf neue Version — Inline-Ergebnis |
+| Setup neu starten | Button (Ghost) | Startet den Onboarding-Flow neu (z.B. bei API-Key-Wechsel oder Neueinrichtung) |
+| Open-Source-Lizenzen | Link (Ghost) | Öffnet Lizenzen-Übersicht |
+
+---
+
+### Profil-Wechsel-Overlay
+
+Das Profil-Wechsel-Overlay folgt dem **Spotlight-Paradigma** — identische visuelle Sprache wie das History Overlay.
+
+#### Trigger & Verhalten
+
+- **Shortcut:** `⌘⇧P` (konfigurierbar in Settings → Shortcuts)
+- **Fenstertyp:** Electron `BrowserWindow`, `always-on-top`, `frame: false`
+- **Position:** Bildschirmmitte (fix, nicht konfigurierbar)
+- **Toggle:** Nochmaliges Drücken des Shortcuts schließt das Overlay
+
+#### Layout
+
+```
+┌──────────────────────────────────────────┐
+│  [Icon]  Profil wechseln                 │
+├──────────────────────────────────────────┤
+│                                          │
+│▌ ✓ Standard          Mic · kein LLM     │  ← aktives Profil highlighted
+│                                          │
+│   Commit Message     Mic · gpt-4o       │
+│                                          │
+│   Meeting Notes      Dual · gpt-4o-mini │
+│                                          │
+│   Übersetzung EN     Mic · gpt-4o       │
+│                                          │
+└──────────────────────────────────────────┘
+          ↑↓ Navigieren · ⏎ Aktivieren · ⎋ Schließen
+```
+
+#### Listeneintrag
+
+| Zone | Inhalt | Stil |
+| --- | --- | --- |
+| Links | Profil-Name | Inter 13px, `#FAFAFA` |
+| Rechts | Recording Mode + LLM-Modell (oder `kein LLM`) | Inter 11px, `#5A5A62` |
+| Aktiv-Badge | `✓` Icon vor dem aktiven Profil | Indigo `#6366F1` |
+
+**Highlight-State (ausgewählter Eintrag):**
+- Hintergrund: `#25253A` (Indigo-Tint)
+- Linke Border: 2px solid `#6366F1`
+- Profil-Name: `#FFFFFF`
+
+#### Keyboard-Navigation
+
 | Taste | Aktion |
-|---|---|
-| `Tab` / `Shift+Tab` | Navigation zwischen Elementen |
-| `Enter` / `Space` | Aktion ausführen |
-| `Escape` | Abbrechen / Settings schließen / Onboarding verlassen |
-| Globaler Hotkey | Recording starten/stoppen (systemweit, konfigurierbar) |
+| --- | --- |
+| `↓` / `↑` | Nächstes / vorheriges Profil |
+| `Enter` | Profil aktivieren + Overlay schließen |
+| `Escape` | Schließen ohne Änderung |
+
+#### Animationen
+
+Identisch zu History Overlay: Fade-in + Scale 0.96→1.0 (150ms) · Fade-out (100ms). `prefers-reduced-motion`: nur Fade.
