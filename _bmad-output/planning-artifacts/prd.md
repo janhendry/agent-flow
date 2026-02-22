@@ -103,28 +103,29 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ### MVP — Minimum Viable Product (Tier 1)
 
-| Capability      | Details                                                                  |
-| --------------- | ------------------------------------------------------------------------ |
-| Audio Recording | Mic-Only, macOS                                                          |
-| Audio Pipeline  | FFmpeg WAV → WebM/Opus                                                   |
-| Transkription   | Whisper API (ohne Prompt)                                                |
-| Output          | Clipboard                                                                |
-| UI              | System Tray, HUD (4 States), Snackbar-Notifications                      |
-| Shortcuts       | Globale Shortcuts für Recording                                          |
+| Capability      | Details                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Audio Recording | Mic-Only, macOS                                                                                     |
+| Audio Pipeline  | FFmpeg WAV → WebM/Opus                                                                              |
+| Transkription   | Whisper API (ohne Prompt)                                                                           |
+| Output          | Clipboard                                                                                           |
+| UI              | System Tray, HUD (4 States), Snackbar-Notifications                                                 |
+| Shortcuts       | Globale Shortcuts für Recording                                                                     |
 | Settings        | API Key, Profile (Recording Mode, Whisper-Modell, Glossar, LLM), Shortcuts, General, Audio, Display |
-| Onboarding      | First-Run-Flow, API-Key-Gate, Test-Recording, BlackHole-Check _(Tier 2)_ |
+| Onboarding      | First-Run-Flow, API-Key-Gate, Test-Recording, BlackHole-Check _(Tier 2)_                            |
 
 ### Growth Features — Tier 2
 
 - System-Audio + Dual-Recording (macOS via BlackHole)
 - Transcription-Prompt (Whisper Stil/Glossar) + LLM Post-Processing (GPT)
-- Quick History Overlay (letzte 20 Transkriptionen) + Storage + Auto-Cleanup
+- Quick History Overlay (alle gespeicherten Transkriptionen) + Storage + Auto-Cleanup
 - Shortcut Recorder (UI), vollständige Settings-Tabs
+- Push-to-Talk Modus (Shortcut halten statt Toggle)
 
 ### Vision — Tier 3
 
 - Code Review Mode, Full History Window (Audio Playback)
-- Silence Detection, Pause/Resume, Push-to-Talk
+- Silence Detection, Pause/Resume
 - Windows Port (vollständig), Transcription Queue
 
 ---
@@ -275,13 +276,13 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 ### Output & Clipboard
 
 - **FR12:** Das System kopiert das Transkriptionsergebnis automatisch in die System-Zwischenablage
-- **FR13:** Nutzer kann vergangene Transkriptionen in einem Quick History Overlay einsehen (letzte 20) _(Tier 2)_
+- **FR13:** Nutzer kann vergangene Transkriptionen in einem Quick History Overlay einsehen und per Fuzzy-Search filtern _(Tier 2)_
 - **FR14:** Nutzer kann einen Eintrag aus der History erneut in die Zwischenablage kopieren _(Tier 2)_
 
 ### System Tray & Globale Shortcuts
 
 - **FR15:** Die App läuft als System-Tray-Applikation ohne permanentes Hauptfenster
-- **FR16:** Nutzer kann über das Tray-Icon auf Settings und weitere Funktionen zugreifen
+- **FR16:** Nutzer kann über das Tray-Icon auf Settings, History-Overlay, Profil-Wechsel und Quit zugreifen
 - **FR17:** Nutzer kann globale Tastaturkürzel für Recording-Aktionen konfigurieren
 - **FR18:** Globale Shortcuts funktionieren unabhängig davon, welche App im Vordergrund ist
 - **FR19:** Nutzer kann den Shortcut-Recorder nutzen, um Shortcuts per UI neu zu belegen _(Tier 2)_
@@ -294,12 +295,13 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **FR21:** Das System zeigt ein HUD mit dem Status "Transcribing" während der API-Verarbeitung
 - **FR22:** Das System zeigt eine Erfolgsbestätigung ("✓") wenn das Transkript in der Zwischenablage ist
 - **FR23:** Das System zeigt eine Fehlermeldung wenn Aufnahme oder Transkription fehlschlägt
-- **FR24:** Das System zeigt Snackbar-Benachrichtigungen für relevante Ereignisse
+- **FR24:** Das System zeigt Snackbar-Benachrichtigungen für folgende Ereignisse: Aufnahme gestartet, Transkription abgeschlossen, Fehler bei Aufnahme oder Transkription, Update verfügbar
 
 ### Settings & Konfiguration
 
 - **FR25:** Nutzer kann seinen OpenAI API Key eingeben und speichern
-- **FR26:** Nutzer kann den Standard-Recording-Modus (Mic/System/Dual) konfigurieren
+- **FR26:** Nutzer kann den Recording-Modus (Mic Only / System Audio / Dual) pro Profil konfigurieren — kein globaler Modus, der Modus ist Bestandteil des aktiven Profils
+- **FR26a:** Nutzer kann den Aufnahme-Interaktionsmodus konfigurieren: Toggle (einmal drücken startet, nochmal drücken stoppt) oder Push-to-Talk (Shortcut halten zum Aufnehmen, loslassen stoppt) _(Tier 2)_
 - **FR27:** Nutzer kann globale Shortcuts für alle Recording-Aktionen konfigurieren
 - **FR27a:** Nutzer kann Profile erstellen, bearbeiten, duplizieren und löschen — jedes Profil enthält: Name, Recording Mode, Whisper-Modell, Glossar (optional), LLM ON/OFF, LLM-Modell (optional), System Prompt (optional)
 - **FR27b:** Nutzer kann das aktive Profil über ein Spotlight-style Overlay wechseln (Shortcut: ⌘⇧P)

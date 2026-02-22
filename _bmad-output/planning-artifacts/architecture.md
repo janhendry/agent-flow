@@ -36,16 +36,16 @@ _This document builds collaboratively through step-by-step discovery. Sections a
 
 39 Functional Requirements (FR1–FR39) verteilt auf 8 Kategorien:
 
-| Kategorie                 | FRs       | Tier                                |
-| ------------------------- | --------- | ----------------------------------- |
-| Audio Recording           | FR1–FR7   | T1: FR1, FR4–FR6; T2: FR2, FR3, FR7 |
-| Transkription             | FR8–FR11  | T1: FR8; T2: FR9–FR11               |
-| Output & Clipboard        | FR12–FR14 | T1: FR12; T2: FR13–FR14             |
-| System Tray & Shortcuts   | FR15–FR19 | T1: FR15–FR18; T2: FR19             |
-| HUD & Feedback            | FR20–FR24 | T1 komplett                         |
+| Kategorie                 | FRs       | Tier                                       |
+| ------------------------- | --------- | ------------------------------------------ |
+| Audio Recording           | FR1–FR7   | T1: FR1, FR4–FR6; T2: FR2, FR3, FR7        |
+| Transkription             | FR8–FR11  | T1: FR8; T2: FR9–FR11                      |
+| Output & Clipboard        | FR12–FR14 | T1: FR12; T2: FR13–FR14                    |
+| System Tray & Shortcuts   | FR15–FR19 | T1: FR15–FR18; T2: FR19                    |
+| HUD & Feedback            | FR20–FR24 | T1 komplett                                |
 | Settings & Konfiguration  | FR25–FR29 | T1: FR25–FR27, FR27a–FR27c, FR28; T2: FR29 |
-| Onboarding & Erster Start | FR30–FR34 | T1 komplett                         |
-| Storage, Auto-Update      | FR35–FR39 | T2: FR35–FR37; T1: FR38–FR39        |
+| Onboarding & Erster Start | FR30–FR34 | T1 komplett                                |
+| Storage, Auto-Update      | FR35–FR39 | T2: FR35–FR37; T1: FR38–FR39               |
 
 Architektonische Implikation: Tier-1-Scope ist klar abgrenzbar. Die Architektur muss Tier-2-Features (BlackHole, History, LLM) ermöglichen, ohne Tier-1-Implementierung zu belasten.
 
@@ -814,18 +814,18 @@ transcriptionService.transcribe(filePath, (err, result) => { ... });
 
 ### Requirements → Structure Mapping
 
-| FR-Kategorie                  | Hauptdateien                                                                                                                                               |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Audio Recording (FR1–FR7)     | `shared/services/recording.service.ts`, `src/main/lib/ffmpeg.lib.ts`, `src/main/lib/audio-device.lib.ts`, `shared/stores/recording.store.ts`               |
-| Transkription (FR8–FR11)      | `shared/services/transcription.service.ts`, `src/main/lib/whisper-api.lib.ts`                                                                              |
-| Output/Clipboard (FR12–FR14)  | `shared/services/clipboard.service.ts`                                                                                                                     |
-| System Tray (FR15–FR16)       | `src/main/lib/tray.lib.ts`                                                                                                                                 |
-| Globale Shortcuts (FR17–FR18) | `src/main/lib/shortcut.lib.ts`                                                                                                                             |
-| HUD (FR20–FR24)               | `src/renderer/screens/HudWindow.tsx`, `src/renderer/components/AudioLevelMeter.tsx`, `shared/stores/hud.store.ts`                                          |
+| FR-Kategorie                        | Hauptdateien                                                                                                                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Audio Recording (FR1–FR7)           | `shared/services/recording.service.ts`, `src/main/lib/ffmpeg.lib.ts`, `src/main/lib/audio-device.lib.ts`, `shared/stores/recording.store.ts`                                                                  |
+| Transkription (FR8–FR11)            | `shared/services/transcription.service.ts`, `src/main/lib/whisper-api.lib.ts`                                                                                                                                 |
+| Output/Clipboard (FR12–FR14)        | `shared/services/clipboard.service.ts`                                                                                                                                                                        |
+| System Tray (FR15–FR16)             | `src/main/lib/tray.lib.ts`                                                                                                                                                                                    |
+| Globale Shortcuts (FR17–FR18)       | `src/main/lib/shortcut.lib.ts`                                                                                                                                                                                |
+| HUD (FR20–FR24)                     | `src/renderer/screens/HudWindow.tsx`, `src/renderer/components/AudioLevelMeter.tsx`, `shared/stores/hud.store.ts`                                                                                             |
 | Settings (FR25–FR27, FR27a–c, FR28) | `shared/services/settings.service.ts`, `src/main/lib/safe-storage.lib.ts`, `src/main/lib/electron-store.lib.ts`, `src/renderer/screens/SettingsScreen.tsx`, `src/renderer/screens/ProfileSwitcherOverlay.tsx` |
-| Onboarding (FR30–FR34)        | `src/renderer/screens/OnboardingScreen.tsx`, `src/main/lib/dependency-check.lib.ts`                                                                        |
-| FFmpeg Pipeline               | `src/main/lib/ffmpeg.lib.ts` — `ffmpeg-static` Pfad via `import ffmpegPath from 'ffmpeg-static'`, Binary aus `process.resourcesPath` in Production         |
-| Window Management             | `src/main/lib/window-manager.lib.ts`                                                                                                                       |
+| Onboarding (FR30–FR34)              | `src/renderer/screens/OnboardingScreen.tsx`, `src/main/lib/dependency-check.lib.ts`                                                                                                                           |
+| FFmpeg Pipeline                     | `src/main/lib/ffmpeg.lib.ts` — `ffmpeg-static` Pfad via `import ffmpegPath from 'ffmpeg-static'`, Binary aus `process.resourcesPath` in Production                                                            |
+| Window Management                   | `src/main/lib/window-manager.lib.ts`                                                                                                                                                                          |
 
 ---
 

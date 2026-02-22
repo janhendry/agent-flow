@@ -505,15 +505,15 @@ flowchart TD
 
 ### Design System Components (Radix UI — direkt nutzbar)
 
-| Component   | Verwendung                                                            |
-| ----------- | --------------------------------------------------------------------- |
-| `Switch`    | Settings-Toggles (Transcript Overlay, Push-to-Talk, Auto-Launch, LLM pro Profil) |
-| `TextField` | API-Key-Input, Profil-Name, System-Prompt-Name, Glossar-Name          |
-| `Select`    | HUD-Position, Audio-Device-Auswahl, Whisper-Modell, LLM-Modell        |
+| Component   | Verwendung                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| `Switch`    | Settings-Toggles (Transcript Overlay, Push-to-Talk, Auto-Launch, LLM pro Profil)                                    |
+| `TextField` | API-Key-Input, Profil-Name, System-Prompt-Name, Glossar-Name                                                        |
+| `Select`    | HUD-Position, Audio-Device-Auswahl, Whisper-Modell, LLM-Modell                                                      |
 | `Tabs`      | Settings-Navigation (General / Shortcuts / Profile / System Prompts / Glossare / API Key / Audio / Display / About) |
-| `Textarea`  | System-Prompt-Text, Glossar-Text                                      |
-| `Tooltip`   | Hotkey-Hints in der App                                               |
-| `Dialog`    | Onboarding-Flow-Container                                             |
+| `Textarea`  | System-Prompt-Text, Glossar-Text                                                                                    |
+| `Tooltip`   | Hotkey-Hints in der App                                                                                             |
+| `Dialog`    | Onboarding-Flow-Container                                                                                           |
 
 ### Custom Components
 
@@ -926,12 +926,12 @@ interface HistoryOverlaySettings {
 
 ### Fenster-Eigenschaften
 
-| Property     | Wert                                      |
-| ------------ | ----------------------------------------- |
-| Mindestgröße | 700×500px (`minWidth` / `minHeight`)      |
-| Skalierbar   | Ja — Layout wächst mit verfügbarem Raum   |
-| Sidebar      | 220px fix links (vertikale Tab-Navigation) |
-| Content-Bereich | Flex-grow, kein horizontales Scrolling |
+| Property        | Wert                                       |
+| --------------- | ------------------------------------------ |
+| Mindestgröße    | 700×500px (`minWidth` / `minHeight`)       |
+| Skalierbar      | Ja — Layout wächst mit verfügbarem Raum    |
+| Sidebar         | 220px fix links (vertikale Tab-Navigation) |
+| Content-Bereich | Flex-grow, kein horizontales Scrolling     |
 
 ### Sidebar-Navigation — Tab-Reihenfolge
 
@@ -956,14 +956,14 @@ Trennlinien (`──`) als visuelle Gruppenabgrenzung in der Sidebar.
 
 ### Tab: General
 
-| Setting | Typ | Default | Detail |
-| --- | --- | --- | --- |
-| Launch at Login | Switch | OFF | App bei macOS-Start automatisch starten |
-| Show HUD | Switch | ON | OFF = komplett kein visuelles Feedback während Recording (Power-User-Modus) |
-| Language | Select | Auto-detect | `Auto-detect · Deutsch · English · Français · Español · Italiano · Português · Japanese · Chinese · Russian` |
-| Push-to-Talk | Switch | ON | ON = Shortcut halten zum Aufnehmen; OFF = Toggle (einmal drücken startet, nochmal drücken stoppt) |
-| Transcript Overlay | Switch | OFF | Kurze Text-Vorschau nach Transkription anzeigen |
-| ↳ Anzeigedauer | TextField (Zahl) | `3` | Immer sichtbar, **disabled** wenn Transcript Overlay OFF — Zahleingabe mit Suffix `„Sek"` |
+| Setting            | Typ              | Default     | Detail                                                                                                       |
+| ------------------ | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| Launch at Login    | Switch           | OFF         | App bei macOS-Start automatisch starten                                                                      |
+| Show HUD           | Switch           | ON          | OFF = komplett kein visuelles Feedback während Recording (Power-User-Modus)                                  |
+| Language           | Select           | Auto-detect | `Auto-detect · Deutsch · English · Français · Español · Italiano · Português · Japanese · Chinese · Russian` |
+| Push-to-Talk       | Switch           | ON          | ON = Shortcut halten zum Aufnehmen; OFF = Toggle (einmal drücken startet, nochmal drücken stoppt)            |
+| Transcript Overlay | Switch           | OFF         | Kurze Text-Vorschau nach Transkription anzeigen                                                              |
+| ↳ Anzeigedauer     | TextField (Zahl) | `3`         | Immer sichtbar, **disabled** wenn Transcript Overlay OFF — Zahleingabe mit Suffix `„Sek"`                    |
 
 > **Hinweis:** Recording Mode ist nicht mehr in General — er ist Teil jedes Profils (Tab: Profile).
 
@@ -973,30 +973,32 @@ Trennlinien (`──`) als visuelle Gruppenabgrenzung in der Sidebar.
 
 #### Recording
 
-| Shortcut | Default | Detail |
-| --- | --- | --- |
-| Recording (aktueller Mode) | `⌘⇧Space` | Startet Recording im aktiven Profil |
-| ↳ Mic Only | — leer — | Optional — startet **ephemeral** Mic-Only-Aufnahme ohne aktives Profil zu ändern |
-| ↳ System Audio | — leer — | Optional — ephemeral System-Audio-Aufnahme |
-| ↳ Dual (Mic + System) | — leer — | Optional — ephemeral Dual-Aufnahme |
+| Shortcut                   | Default   | Detail                                                                           |
+| -------------------------- | --------- | -------------------------------------------------------------------------------- |
+| Recording (aktueller Mode) | `⌘⇧Space` | Startet Recording im aktiven Profil                                              |
+| ↳ Mic Only                 | — leer —  | Optional — startet **ephemeral** Mic-Only-Aufnahme ohne aktives Profil zu ändern |
+| ↳ System Audio             | — leer —  | Optional — ephemeral System-Audio-Aufnahme                                       |
+| ↳ Dual (Mic + System)      | — leer —  | Optional — ephemeral Dual-Aufnahme                                               |
 
 #### Weitere Shortcuts
 
-| Shortcut | Default | Detail |
-| --- | --- | --- |
-| Profil-Wechsel-Overlay | `⌘⇧P` | Öffnet das Profil-Wechsel-Overlay (Spotlight-style) |
-| History Overlay | `⌘⇧H` | Öffnet das History Overlay |
+| Shortcut                  | Default  | Detail                                                                 |
+| ------------------------- | -------- | ---------------------------------------------------------------------- |
+| Profil-Wechsel-Overlay    | `⌘⇧P`    | Öffnet das Profil-Wechsel-Overlay (Spotlight-style)                    |
+| History Overlay           | `⌘⇧H`    | Öffnet das History Overlay                                             |
 | Letztes Ergebnis kopieren | — leer — | Kopiert das letzte Transkriptionsergebnis erneut in die Zwischenablage |
 
 #### Konflikt-Verhalten
 
 Wenn ein eingegebener Shortcut bereits systemweit belegt ist:
+
 - Inline-Warnung direkt unter dem Feld: `„⌘⇧Space wird bereits von [App-Name] verwendet"`
 - Speichern trotzdem möglich — keine Blockierung
 
 #### UI-Pattern: KeyCapture-Feld
 
 Jeder Shortcut wird als `KeyboardBadge` dargestellt. Klick auf `„Ändern"` → Feld wechselt in Capture-Mode:
+
 - Placeholder: `„Drücke neue Tastenkombination..."`
 - `Escape` → bricht Capture ab, kein Change
 - Leeres Feld (kein Shortcut gesetzt) zeigt `„—"` mit Button `„Festlegen"`
@@ -1015,15 +1017,15 @@ Jeder Shortcut wird als `KeyboardBadge` dargestellt. Klick auf `„Ändern"` →
 
 #### Profil-Detail (rechte Spalte)
 
-| Feld | Typ | Detail |
-| --- | --- | --- |
-| Name | TextField | Pflichtfeld |
-| Recording Mode | Select | `Mic Only / System Audio / Dual (Mic + System)` |
-| Whisper Modell | Select | `whisper-1` + zukünftige Modelle per Dropdown |
-| Glossar | Select + | Aus Glossar-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet Glossar-Tab) |
-| LLM Post-Processing | Switch | ON = Transkription wird nach Whisper ans LLM geschickt |
-| ↳ LLM Modell | Select | `gpt-4o / gpt-4o-mini / gpt-4-turbo` — nur sichtbar wenn LLM ON |
-| ↳ System Prompt | Select + | Aus System-Prompt-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet System-Prompts-Tab) — nur sichtbar wenn LLM ON |
+| Feld                | Typ       | Detail                                                                                                                       |
+| ------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Name                | TextField | Pflichtfeld                                                                                                                  |
+| Recording Mode      | Select    | `Mic Only / System Audio / Dual (Mic + System)`                                                                              |
+| Whisper Modell      | Select    | `whisper-1` + zukünftige Modelle per Dropdown                                                                                |
+| Glossar             | Select +  | Aus Glossar-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet Glossar-Tab)                                         |
+| LLM Post-Processing | Switch    | ON = Transkription wird nach Whisper ans LLM geschickt                                                                       |
+| ↳ LLM Modell        | Select    | `gpt-4o / gpt-4o-mini / gpt-4-turbo` — nur sichtbar wenn LLM ON                                                              |
+| ↳ System Prompt     | Select +  | Aus System-Prompt-Bibliothek wählen — oder `„+ Neu erstellen"` inline (öffnet System-Prompts-Tab) — nur sichtbar wenn LLM ON |
 
 #### Aktionen
 
@@ -1055,10 +1057,10 @@ LLM: OFF
 
 #### System-Prompt-Detail
 
-| Feld | Typ | Detail |
-| --- | --- | --- |
-| Name | TextField | z.B. `„Bullet Points"`, `„Commit Message"`, `„Grammar Fix"` |
-| Prompt-Text | Textarea (mehrzeilig, ~8 Zeilen) | Der vollständige System Prompt für den LLM |
+| Feld        | Typ                              | Detail                                                      |
+| ----------- | -------------------------------- | ----------------------------------------------------------- |
+| Name        | TextField                        | z.B. `„Bullet Points"`, `„Commit Message"`, `„Grammar Fix"` |
+| Prompt-Text | Textarea (mehrzeilig, ~8 Zeilen) | Der vollständige System Prompt für den LLM                  |
 
 **Aktionen:** Speichern · Duplizieren · Löschen
 
@@ -1072,9 +1074,9 @@ LLM: OFF
 
 #### Glossar-Detail
 
-| Feld | Typ | Detail |
-| --- | --- | --- |
-| Name | TextField | z.B. `„Tech-Begriffe"`, `„Medizin"` |
+| Feld         | Typ                              | Detail                                                                                                                                                           |
+| ------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name         | TextField                        | z.B. `„Tech-Begriffe"`, `„Medizin"`                                                                                                                              |
 | Glossar-Text | Textarea (mehrzeilig, ~8 Zeilen) | Whisper-Kontext-Hint — Fachbegriffe, Eigennamen, stilistische Hinweise. Placeholder: `„Kontext oder Fachbegriffe: z.B. WhisperFlow, Electron, React, FFmpeg..."` |
 
 **Aktionen:** Speichern · Duplizieren · Löschen
@@ -1083,11 +1085,11 @@ LLM: OFF
 
 ### Tab: API Key
 
-| Setting | Typ | Detail |
-| --- | --- | --- |
-| OpenAI API Key | TextField (type=password) | Toggle-Icon rechts zum Anzeigen/Verbergen — Validierung on-blur |
-| ↳ Verbindung testen | Button (Secondary) | Direkt unter dem Key-Feld — macht kurzen Test-Call zu OpenAI API |
-| ↳ Test-Ergebnis | Inline | Spinner während Test → `✓ Verbunden` (grün) oder `✗ Key ungültig` (rot) |
+| Setting             | Typ                       | Detail                                                                  |
+| ------------------- | ------------------------- | ----------------------------------------------------------------------- |
+| OpenAI API Key      | TextField (type=password) | Toggle-Icon rechts zum Anzeigen/Verbergen — Validierung on-blur         |
+| ↳ Verbindung testen | Button (Secondary)        | Direkt unter dem Key-Feld — macht kurzen Test-Call zu OpenAI API        |
+| ↳ Test-Ergebnis     | Inline                    | Spinner während Test → `✓ Verbunden` (grün) oder `✗ Key ungültig` (rot) |
 
 > **Hinweis:** Whisper Modell und Prompt sind nicht mehr hier — sie sind Teil der Profile.
 
@@ -1095,17 +1097,18 @@ LLM: OFF
 
 ### Tab: Audio
 
-| Setting | Typ | Detail |
-| --- | --- | --- |
-| Mikrofon-Gerät | Select | Alle verfügbaren macOS Mic-Inputs |
-| System-Audio-Gerät | Select | Immer sichtbar — **disabled** wenn aktives Profil = `Mic Only`. Zeigt BlackHole/Loopback-Devices. |
-| Audio testen | Button (toggle) | `„Test starten"` → während Test: `„Test beenden"` |
-| ↳ Pegel-Meter | Live-Visualisierung | Erscheint nur während Test läuft — zeigt das echte FFmpeg-Signal der aktuellen Audio-Konfiguration. 10 vertikale Bars. |
-| ↳ Kein Signal | Inline-Hinweis | `„Kein Signal erkannt — BlackHole konfiguriert?"` (nur wenn Meter flach bleibt) |
-| ↳ Auto-Stop | — | Test stoppt automatisch nach **60 Sekunden** |
-| ↳ Playback | — | Nach Test-Ende: Aufnahme einmal abspielen, dann verwerfen |
+| Setting            | Typ                 | Detail                                                                                                                 |
+| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Mikrofon-Gerät     | Select              | Alle verfügbaren macOS Mic-Inputs                                                                                      |
+| System-Audio-Gerät | Select              | Immer sichtbar — **disabled** wenn aktives Profil = `Mic Only`. Zeigt BlackHole/Loopback-Devices.                      |
+| Audio testen       | Button (toggle)     | `„Test starten"` → während Test: `„Test beenden"`                                                                      |
+| ↳ Pegel-Meter      | Live-Visualisierung | Erscheint nur während Test läuft — zeigt das echte FFmpeg-Signal der aktuellen Audio-Konfiguration. 10 vertikale Bars. |
+| ↳ Kein Signal      | Inline-Hinweis      | `„Kein Signal erkannt — BlackHole konfiguriert?"` (nur wenn Meter flach bleibt)                                        |
+| ↳ Auto-Stop        | —                   | Test stoppt automatisch nach **60 Sekunden**                                                                           |
+| ↳ Playback         | —                   | Nach Test-Ende: Aufnahme einmal abspielen, dann verwerfen                                                              |
 
 **Test-Flow:**
+
 1. Klick `„Test starten"` → FFmpeg-Aufnahme startet mit aktueller Konfiguration → Pegel-Meter erscheint
 2. Klick `„Test beenden"` (oder Auto-Stop nach 60s) → Aufnahme stoppt
 3. Audio wird einmal abgespielt → verworfen
@@ -1114,23 +1117,23 @@ LLM: OFF
 
 ### Tab: Display
 
-| Setting | Typ | Default | Detail |
-| --- | --- | --- | --- |
-| HUD-Position | Select | `Bottom Center` | `Bottom Center / Top Center / Bottom Left / Bottom Right / Top Left / Top Right` |
-| History Overlay Position | Select | `Center` | `Center / Top / Mouse Cursor` |
+| Setting                     | Typ    | Default         | Detail                                                                           |
+| --------------------------- | ------ | --------------- | -------------------------------------------------------------------------------- |
+| HUD-Position                | Select | `Bottom Center` | `Bottom Center / Top Center / Bottom Left / Bottom Right / Top Left / Top Right` |
+| History Overlay Position    | Select | `Center`        | `Center / Top / Mouse Cursor`                                                    |
 | Transcript Overlay Position | Select | `Bottom Center` | `Bottom Center / Top Center / Bottom Left / Bottom Right / Top Left / Top Right` |
-| Appearance | Select | `System (Auto)` | `System (Auto) / Light / Dark` — überschreibt macOS Theme wenn explizit gewählt |
+| Appearance                  | Select | `System (Auto)` | `System (Auto) / Light / Dark` — überschreibt macOS Theme wenn explizit gewählt  |
 
 ---
 
 ### Tab: About
 
-| Element | Typ | Detail |
-| --- | --- | --- |
-| App-Name + Version | Text | z.B. `WhisperFlow 1.0.0` — groß, zentriert oben |
-| Nach Updates suchen | Button (Secondary) | Prüft auf neue Version — Inline-Ergebnis |
-| Setup neu starten | Button (Ghost) | Startet den Onboarding-Flow neu (z.B. bei API-Key-Wechsel oder Neueinrichtung) |
-| Open-Source-Lizenzen | Link (Ghost) | Öffnet Lizenzen-Übersicht |
+| Element              | Typ                | Detail                                                                         |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------ |
+| App-Name + Version   | Text               | z.B. `WhisperFlow 1.0.0` — groß, zentriert oben                                |
+| Nach Updates suchen  | Button (Secondary) | Prüft auf neue Version — Inline-Ergebnis                                       |
+| Setup neu starten    | Button (Ghost)     | Startet den Onboarding-Flow neu (z.B. bei API-Key-Wechsel oder Neueinrichtung) |
+| Open-Source-Lizenzen | Link (Ghost)       | Öffnet Lizenzen-Übersicht                                                      |
 
 ---
 
@@ -1166,24 +1169,25 @@ Das Profil-Wechsel-Overlay folgt dem **Spotlight-Paradigma** — identische visu
 
 #### Listeneintrag
 
-| Zone | Inhalt | Stil |
-| --- | --- | --- |
-| Links | Profil-Name | Inter 13px, `#FAFAFA` |
-| Rechts | Recording Mode + LLM-Modell (oder `kein LLM`) | Inter 11px, `#5A5A62` |
-| Aktiv-Badge | `✓` Icon vor dem aktiven Profil | Indigo `#6366F1` |
+| Zone        | Inhalt                                        | Stil                  |
+| ----------- | --------------------------------------------- | --------------------- |
+| Links       | Profil-Name                                   | Inter 13px, `#FAFAFA` |
+| Rechts      | Recording Mode + LLM-Modell (oder `kein LLM`) | Inter 11px, `#5A5A62` |
+| Aktiv-Badge | `✓` Icon vor dem aktiven Profil               | Indigo `#6366F1`      |
 
 **Highlight-State (ausgewählter Eintrag):**
+
 - Hintergrund: `#25253A` (Indigo-Tint)
 - Linke Border: 2px solid `#6366F1`
 - Profil-Name: `#FFFFFF`
 
 #### Keyboard-Navigation
 
-| Taste | Aktion |
-| --- | --- |
-| `↓` / `↑` | Nächstes / vorheriges Profil |
-| `Enter` | Profil aktivieren + Overlay schließen |
-| `Escape` | Schließen ohne Änderung |
+| Taste     | Aktion                                |
+| --------- | ------------------------------------- |
+| `↓` / `↑` | Nächstes / vorheriges Profil          |
+| `Enter`   | Profil aktivieren + Overlay schließen |
+| `Escape`  | Schließen ohne Änderung               |
 
 #### Animationen
 
