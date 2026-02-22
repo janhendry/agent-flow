@@ -294,6 +294,7 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **FR20b:** Das HUD zeigt Clipping-Feedback (visueller Hinweis) wenn der Eingangspegel den Maximalwert überschreitet, damit der Nutzer die Aufnahmedistanz oder Lautstärke anpassen kann
 - **FR21:** Das System zeigt ein HUD mit dem Status "Transcribing" während der API-Verarbeitung
 - **FR22:** Das System zeigt eine Erfolgsbestätigung ("✓") wenn das Transkript in der Zwischenablage ist
+- **FR22a:** Das System kann optional ein TranscriptOverlay anzeigen, das den transkribierten Text kurz einblendet bevor er in die Zwischenablage kopiert wird — standardmäßig deaktiviert, pro Profil zuschaltbar _(Tier 2)_
 - **FR23:** Das System zeigt eine Fehlermeldung wenn Aufnahme oder Transkription fehlschlägt
 - **FR24:** Das System zeigt Snackbar-Benachrichtigungen für folgende Ereignisse: Aufnahme gestartet, Transkription abgeschlossen, Fehler bei Aufnahme oder Transkription, Update verfügbar
 
@@ -345,12 +346,17 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 - **NFR6:** Globale Shortcuts werden nach App-Neustart sowie nach System-Sleep/Wake zuverlässig neu registriert
 - **NFR7:** Ein fehlgeschlagener API-Call (Timeout, Netzwerkfehler) führt zu einer klaren Fehlermeldung — kein stiller Fehler, kein Absturz
 
+### Accessibility
+
+- **NFR8:** Die App respektiert macOS System-Accessibility-Einstellungen (z.B. Reduced Motion für HUD-Animationen und Level-Meter-Animation)
+
 ### Audio Level Stream Performance
 
 - **NFR9:** Audiopegel-Daten werden mit einer Latenz von unter 50ms vom Main Process an den HUD-Renderer gestreamt — visuelles Feedback ist für den Nutzer wahrnehmbar synchron zur Spracheingabe
 - **NFR10:** Die Audiopegel-Visualisierung läuft mit mindestens 30fps ohne spürbaren CPU-Overhead — der Render-Loop ist via `requestAnimationFrame` auf den Display-Refresh synchronisiert
 - **NFR11:** Der MessagePort-Channel für Audio-Level-Streaming wird beim Schließen des HUD-Fensters sauber terminiert — kein Memory Leak durch offene Ports
 
-### Accessibility
+### Security & Datenschutz
 
-- **NFR12:** Die App respektiert macOS System-Accessibility-Einstellungen (z.B. Reduced Motion für HUD-Animationen und Level-Meter-Animation)
+- **NFR12:** API Keys und Credentials werden verschlüsselt gespeichert (via OS-Keychain/safeStorage) — niemals als Plaintext auf der Festplatte
+- **NFR13:** Lokale Transkriptions- und Audiodaten werden ausschließlich im User-Kontext gespeichert (App-Verzeichnis) — keine Übertragung an Dritte außer der konfigurierten Whisper/LLM-API
