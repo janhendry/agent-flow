@@ -65,6 +65,7 @@ Interaktives Menü zum Konfigurieren:
 
 - **Aufnahme-Modus** (`mic` / `system` / `both`)
 - **Mikrofon** (aus Liste der erkannten avfoundation-Geräte)
+- **System-Audio-Quelle** (z. B. `CABLE Output` oder `Stereo Mix`)
 - **Ausgabe-Ordner** (Standard: `~/Desktop/whisper-recordings`)
 - **OpenAI API-Key** (für Transkription)
 
@@ -89,6 +90,7 @@ Die WAV-Datei wird im konfigurierten Ausgabe-Ordner gespeichert:
 | --------------------- | ------------------------------------------------- |
 | `-m, --mode <modus>`  | Modus überschreiben: `mic` \| `system` \| `both`  |
 | `--mic <index>`       | avfoundation Mikrofon-Index (überschreibt Config) |
+| `--system <index>`    | System-Audio-Index (überschreibt Config)          |
 | `-o, --output <pfad>` | Ausgabedatei explizit angeben                     |
 
 ```bash
@@ -103,6 +105,9 @@ whisper-poc record --mode both
 
 # Bestimmtes Mikrofon per Index
 whisper-poc record --mic 2
+
+# Bestimmtes System-Audio-Gerät per Index
+whisper-poc record --mode both --system 4
 
 # Eigenen Dateinamen angeben
 whisper-poc record --output ~/Schreibtisch/meeting.wav
@@ -191,6 +196,8 @@ export OPENAI_API_KEY=sk-...
   "mode": "both",
   "micIndex": 1,
   "micName": "MacBook Pro Microphone",
+  "systemIndex": 4,
+  "systemName": "CABLE Output (VB-Audio Virtual Cable)",
   "outputDir": "/Users/name/Desktop/whisper-recordings",
   "apiKey": "sk-..."
 }

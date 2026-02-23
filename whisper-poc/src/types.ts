@@ -9,6 +9,8 @@ export interface Config {
 	mode: RecordingMode;
 	micIndex: number;
 	micName: string;
+	systemIndex?: number;
+	systemName?: string;
 	outputDir: string;
 	apiKey?: string;
 	baseUrl?: string;

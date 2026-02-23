@@ -83,9 +83,15 @@ export function findSystemAudioDevice(
 			"what u hear",
 		]
 		: ["blackhole"];
-	return devices.find((d) =>
-		keywords.some((kw) => d.name.toLowerCase().includes(kw)),
-	);
+
+	for (const keyword of keywords) {
+		const matchedDevice = devices.find((device) =>
+			device.name.toLowerCase().includes(keyword),
+		);
+		if (matchedDevice) return matchedDevice;
+	}
+
+	return undefined;
 }
 
 /** @deprecated Verwende findSystemAudioDevice */

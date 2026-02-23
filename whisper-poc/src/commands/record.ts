@@ -20,6 +20,7 @@ interface RecordOptions {
 	mode?: string;
 	output?: string;
 	mic?: string;
+	system?: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -182,7 +183,7 @@ export async function recordCommand(options: RecordOptions): Promise<void> {
 	}
 
 	const devices = await listAudioDevices();
-	const systemDevice = findSystemAudioDevice(devices);
+	const autoSystemDevice = findSystemAudioDevice(devices);
 	let lastFile: string | null = null;
 
 	while (true) {
@@ -193,13 +194,23 @@ export async function recordCommand(options: RecordOptions): Promise<void> {
 			(d) => d.index === micIndex,
 		) ?? { index: config.micIndex, name: config.micName };
 
+		const systemIndex =
+			options.system !== undefined
+				? parseInt(options.system, 10)
+				: config.systemIndex;
+		const configuredSystemDevice =
+			systemIndex !== undefined
+				? devices.find((d) => d.index === systemIndex)
+				: undefined;
+		const systemDevice = configuredSystemDevice ?? autoSystemDevice;
+
 		if ((mode === "system" || mode === "both") && !systemDevice) {
 			console.error(
 				chalk.red("❌  Kein System-Audio-Gerät gefunden.\n") +
-					chalk.yellow(
-						"   macOS:   BlackHole 2ch → https://existential.audio/blackhole/\n",
-					) +
-					chalk.yellow("   Windows: VB-Cable → https://vb-audio.com/Cable/"),
+				chalk.yellow(
+					"   macOS:   BlackHole 2ch → https://existential.audio/blackhole/\n",
+				) +
+				chalk.yellow("   Windows: VB-Cable → https://vb-audio.com/Cable/"),
 			);
 			break;
 		}
@@ -214,6 +225,16 @@ export async function recordCommand(options: RecordOptions): Promise<void> {
 			path.join(config.outputDir, `recording-${timestamp}.wav`);
 		const outputDir = path.dirname(outputFile);
 		if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+		console.log(chalk.gray(`🎛  Mikrofon: [${micDevice.index}] ${micDevice.name}`));
+		if ((mode === "system" || mode === "both") && systemDevice) {
+			console.log(
+				chalk.gray(
+					`🔊  System:   [${systemDevice.index}] ${systemDevice.name}`,
+				),
+			);
+		}
+		console.log("");
 
 		// ── Aufnahme starten ───────────────────────────────────────────────────
 		const { success, durationSec } = await runRecordingSession(

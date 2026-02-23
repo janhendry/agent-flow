@@ -3,7 +3,11 @@ import inquirer from "inquirer";
 import os from "os";
 import path from "path";
 import { Config, RecordingMode } from "../types.js";
-import { getPlatformInfo, listAudioDevices } from "../utils/audio.js";
+import {
+	findSystemAudioDevice,
+	getPlatformInfo,
+	listAudioDevices,
+} from "../utils/audio.js";
 import { getConfigPath, saveConfig } from "../utils/config.js";
 
 const IS_WINDOWS = process.platform === "win32";
@@ -42,6 +46,26 @@ export async function setupCommand(): Promise<void> {
 		deviceChoices.push({ name: "[0] Standard-Mikrofon (Fallback)", value: 0 });
 	}
 
+	const autoSystemDevice = findSystemAudioDevice(devices);
+	const systemDeviceChoices = devices.map((d) => ({
+		name: `[${d.index}] ${d.name}`,
+		value: d.index,
+	}));
+
+	if (autoSystemDevice) {
+		systemDeviceChoices.unshift({
+			name: `Auto (empfohlen): [${autoSystemDevice.index}] ${autoSystemDevice.name}`,
+			value: autoSystemDevice.index,
+		});
+	}
+
+	if (systemDeviceChoices.length === 0) {
+		systemDeviceChoices.push({
+			name: "(Keine Geräte gefunden)",
+			value: -1,
+		});
+	}
+
 	const answers = await inquirer.prompt([
 		{
 			type: "list",
@@ -61,6 +85,13 @@ export async function setupCommand(): Promise<void> {
 			when: (ans) => ans.mode === "mic" || ans.mode === "both",
 		},
 		{
+			type: "list",
+			name: "systemIndex",
+			message: "System-Audio-Quelle auswählen:",
+			choices: systemDeviceChoices,
+			when: (ans) => ans.mode === "system" || ans.mode === "both",
+		},
+		{
 			type: "input",
 			name: "outputDir",
 			message: "Ausgabe-Ordner für Aufnahmen:",
@@ -76,11 +107,19 @@ export async function setupCommand(): Promise<void> {
 	]);
 
 	const selectedDevice = devices.find((d) => d.index === answers.micIndex);
+	const selectedSystemDevice = devices.find(
+		(d) => d.index === answers.systemIndex,
+	);
 
 	const config: Config = {
 		mode: answers.mode as RecordingMode,
 		micIndex: answers.micIndex ?? 0,
 		micName: selectedDevice?.name ?? "Standard",
+		systemIndex:
+			answers.systemIndex !== undefined && answers.systemIndex >= 0
+				? answers.systemIndex
+				: undefined,
+		systemName: selectedSystemDevice?.name,
 		outputDir: answers.outputDir,
 		apiKey: answers.apiKey || undefined,
 	};
@@ -92,12 +131,22 @@ export async function setupCommand(): Promise<void> {
 	console.log(chalk.white("\n  Modus:      ") + chalk.cyan(config.mode));
 	console.log(
 		chalk.white("  Mikrofon:   ") +
-			chalk.cyan(`[${config.micIndex}] ${config.micName}`),
+		chalk.cyan(`[${config.micIndex}] ${config.micName}`),
 	);
+	if (config.mode === "system" || config.mode === "both") {
+		console.log(
+			chalk.white("  System:     ") +
+			chalk.cyan(
+				config.systemName && config.systemIndex !== undefined
+					? `[${config.systemIndex}] ${config.systemName}`
+					: "(automatisch)",
+			),
+		);
+	}
 	console.log(chalk.white("  Ausgabe:    ") + chalk.cyan(config.outputDir));
 	console.log(
 		chalk.white("  API-Key:    ") +
-			chalk.cyan(config.apiKey ? "****gesetzt****" : "(nicht gesetzt)"),
+		chalk.cyan(config.apiKey ? "****gesetzt****" : "(nicht gesetzt)"),
 	);
 	console.log();
 }

@@ -928,6 +928,7 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
 type ConfigStep =
   | "mode"
   | "mic"
+  | "system"
   | "apikey"
   | "baseurl"
   | "outputdir"
@@ -994,9 +995,35 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
     { label: "→ Überspringen", value: "skip" },
   ];
 
+  const autoSystemDevice = findSystemAudioDevice(devices);
+  const systemItems: SelectItem[] = [
+    ...(autoSystemDevice
+      ? [
+          {
+            label: `Auto (empfohlen): [${autoSystemDevice.index}] ${autoSystemDevice.name}`,
+            value: String(autoSystemDevice.index),
+          },
+        ]
+      : []),
+    ...devices
+      .filter((d) =>
+        autoSystemDevice ? d.index !== autoSystemDevice.index : true,
+      )
+      .map((d) => ({
+        label: `[${d.index}] ${d.name}`,
+        value: String(d.index),
+      })),
+    { label: "→ Überspringen (automatisch)", value: "skip" },
+  ];
+
   const micFallbackItems: SelectItem[] = [
     { label: "↻ Erneut suchen", value: "reload" },
     { label: "→ Ohne Auswahl weiter", value: "skip" },
+  ];
+
+  const systemFallbackItems: SelectItem[] = [
+    { label: "↻ Erneut suchen", value: "reload" },
+    { label: "→ Ohne Auswahl weiter (automatisch)", value: "skip" },
   ];
 
   // ── Schritt 1: Modus
@@ -1011,14 +1038,16 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           marginBottom={1}
         >
           <Text color="cyan" bold>
-            ⚙ Einstellungen [1/4] Aufnahmemodus
+            ⚙ Einstellungen [1/6] Aufnahmemodus
           </Text>
         </Box>
         <SelectInput
           items={modeItems}
           onSelect={(item: SelectItem) => {
-            setDraft((d) => ({ ...d, mode: item.value as RecordingMode }));
-            setStep("mic");
+            const nextMode = item.value as RecordingMode;
+            setDraft((d) => ({ ...d, mode: nextMode }));
+            if (nextMode === "system") setStep("system");
+            else setStep("mic");
           }}
         />
         <Text color="gray">
@@ -1040,7 +1069,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           marginBottom={1}
         >
           <Text color="cyan" bold>
-            ⚙ Einstellungen [2/4] Mikrofon auswählen
+            ⚙ Einstellungen [2/6] Mikrofon auswählen
           </Text>
         </Box>
         {devicesLoading ? (
@@ -1062,7 +1091,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
                     .finally(() => setDevicesLoading(false));
                   return;
                 }
-                setStep("apikey");
+                setStep(draft.mode === "both" ? "system" : "apikey");
               }}
             />
           </Box>
@@ -1079,7 +1108,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
                     micName: dev.name,
                   }));
               }
-              setStep("apikey");
+              setStep(draft.mode === "both" ? "system" : "apikey");
             }}
           />
         )}
@@ -1093,7 +1122,81 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
     );
   }
 
-  // ── Schritt 3: API-Key
+  // ── Schritt 3: System-Audio-Quelle
+  if (step === "system") {
+    return (
+      <Box padding={1} flexDirection="column">
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          paddingX={2}
+          paddingY={0}
+          marginBottom={1}
+        >
+          <Text color="cyan" bold>
+            ⚙ Einstellungen [3/6] System-Audio auswählen
+          </Text>
+        </Box>
+        {devicesLoading ? (
+          <Text color="gray">Lade Geräte…</Text>
+        ) : devices.length === 0 ? (
+          <Box flexDirection="column">
+            <Text color="yellow">
+              Keine Audio-Geräte gefunden. Prüfe ffmpeg und deine
+              Windows-Audiokonfiguration.
+            </Text>
+            <Text> </Text>
+            <SelectInput
+              items={systemFallbackItems}
+              onSelect={(item: SelectItem) => {
+                if (item.value === "reload") {
+                  setDevicesLoading(true);
+                  listAudioDevices()
+                    .then(setDevices)
+                    .finally(() => setDevicesLoading(false));
+                  return;
+                }
+                setStep("apikey");
+              }}
+            />
+          </Box>
+        ) : (
+          <SelectInput
+            items={systemItems}
+            onSelect={(item: SelectItem) => {
+              if (item.value !== "skip") {
+                const dev = devices.find((d) => d.index === Number(item.value));
+                if (dev) {
+                  setDraft((d) => ({
+                    ...d,
+                    systemIndex: dev.index,
+                    systemName: dev.name,
+                  }));
+                }
+              } else {
+                setDraft((d) => ({
+                  ...d,
+                  systemIndex: undefined,
+                  systemName: undefined,
+                }));
+              }
+              setStep("apikey");
+            }}
+          />
+        )}
+        <Text color="gray">
+          Aktuell:{" "}
+          <Text color="white">
+            {data.config.systemName && data.config.systemIndex !== undefined
+              ? `[${data.config.systemIndex}] ${data.config.systemName}`
+              : "automatisch"}
+          </Text>
+        </Text>
+      </Box>
+    );
+  }
+
+  // ── Schritt 4: API-Key
   if (step === "apikey") {
     const next = () => setStep("baseurl");
     return (
@@ -1107,7 +1210,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           width={62}
         >
           <Text color="cyan" bold>
-            ⚙ Einstellungen [3/5] OpenAI API-Key
+            ⚙ Einstellungen [4/6] OpenAI API-Key
           </Text>
           <Text> </Text>
           <Text color="gray">
@@ -1135,7 +1238,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
     );
   }
 
-  // ── Schritt 4: Base URL / Proxy
+  // ── Schritt 5: Base URL / Proxy
   if (step === "baseurl") {
     const next = () => setStep("outputdir");
     return (
@@ -1149,7 +1252,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           width={68}
         >
           <Text color="cyan" bold>
-            ⚙ Einstellungen [4/5] OpenAI Base URL
+            ⚙ Einstellungen [5/6] OpenAI Base URL
           </Text>
           <Text> </Text>
           <Text color="gray">
@@ -1177,7 +1280,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
     );
   }
 
-  // ── Schritt 5: Ausgabeordner
+  // ── Schritt 6: Ausgabeordner
   if (step === "outputdir") {
     const save = () => setStep("saving");
     return (
@@ -1191,7 +1294,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           width={66}
         >
           <Text color="cyan" bold>
-            ⚙ Einstellungen [5/5] Ausgabeordner
+            ⚙ Einstellungen [6/6] Ausgabeordner
           </Text>
           <Text> </Text>
           <Text color="gray">Aktuell: {data.config.outputDir}</Text>
@@ -1214,10 +1317,12 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
             Zusammenfassung:
           </Text>
           <Text color="gray" dimColor>
-            {" "}
-            Modus: {draft.mode} · API-Key:{" "}
-            {apiKey.trim() ? "✓ gesetzt" : "nicht gesetzt"} · Base URL:{" "}
-            {baseUrl.trim() || "Standard"}
+            Modus: {draft.mode} · System:{" "}
+            {draft.systemName && draft.systemIndex !== undefined
+              ? `[${draft.systemIndex}] ${draft.systemName}`
+              : "automatisch"}{" "}
+            · API-Key: {apiKey.trim() ? "✓ gesetzt" : "nicht gesetzt"} · Base
+            URL: {baseUrl.trim() || "Standard"}
           </Text>
         </Box>
       </Box>
@@ -1242,7 +1347,12 @@ function App() {
     const config =
       overrideConfig ?? (hasConfig ? loadConfig() : DEFAULT_CONFIG);
     const devices = await listAudioDevices();
-    const systemDevice = findSystemAudioDevice(devices);
+    const configuredSystemDevice =
+      config.systemIndex !== undefined
+        ? devices.find((d) => d.index === config.systemIndex)
+        : undefined;
+    const systemDevice =
+      configuredSystemDevice ?? findSystemAudioDevice(devices);
     const micDevice = devices.find((d) => d.index === config.micIndex) ?? {
       index: config.micIndex,
       name: config.micName,

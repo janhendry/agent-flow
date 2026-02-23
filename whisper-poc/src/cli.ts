@@ -30,6 +30,7 @@ program
 	.description("Aufnahme direkt starten (ohne TUI)")
 	.option("-m, --mode <mode>", "Aufnahme-Modus: mic | system | both")
 	.option("--mic <index>", "avfoundation Mikrofon-Index")
+	.option("--system <index>", "System-Audio-Gerät-Index")
 	.option("-o, --output <datei>", "Ausgabedatei-Pfad")
 	.action(async (options) => {
 		await recordCommand(options);
