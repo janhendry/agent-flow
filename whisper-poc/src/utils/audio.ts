@@ -21,7 +21,7 @@ export async function listAudioDevices(): Promise<AudioDevice[]> {
 function listAudioDevicesMac(): Promise<AudioDevice[]> {
 	return new Promise((resolve) => {
 		exec(
-			'ffmpeg -f avfoundation -list_devices true -i "" 2>&1 || true',
+			'ffmpeg -f avfoundation -list_devices true -i "" 2>&1',
 			(_, stdout, stderr) => {
 				const output = stdout + stderr;
 				const devices: AudioDevice[] = [];
@@ -45,16 +45,15 @@ function listAudioDevicesMac(): Promise<AudioDevice[]> {
 function listAudioDevicesWindows(): Promise<AudioDevice[]> {
 	return new Promise((resolve) => {
 		exec(
-			"ffmpeg -list_devices true -f dshow -i dummy 2>&1 || true",
+			"ffmpeg -list_devices true -f dshow -i dummy 2>&1",
 			(_, stdout, stderr) => {
 				const output = stdout + stderr;
 				const devices: AudioDevice[] = [];
-				// Nur Audio-Abschnitt (nach "DirectShow audio devices")
-				const audioSection = output.split("DirectShow audio devices")[1] || "";
+				// Robust gegen ffmpeg-Ausgaben mit/ohne Abschnittsüberschriften
 				let index = 0;
-				for (const line of audioSection.split("\n")) {
-					const match = line.match(/"([^"]+)"/);
-					if (match && !line.includes("Alternative name")) {
+				for (const line of output.split("\n")) {
+					const match = line.match(/"([^"]+)"\s+\(audio\)/i);
+					if (match) {
 						devices.push({ index: index++, name: match[1].trim() });
 					}
 				}
@@ -76,13 +75,13 @@ export function findSystemAudioDevice(
 ): AudioDevice | undefined {
 	const keywords = IS_WINDOWS
 		? [
-				"cable output",
-				"stereo mix",
-				"voicemeeter",
-				"vb-audio",
-				"wave out mix",
-				"what u hear",
-			]
+			"cable output",
+			"stereo mix",
+			"voicemeeter",
+			"vb-audio",
+			"wave out mix",
+			"what u hear",
+		]
 		: ["blackhole"];
 	return devices.find((d) =>
 		keywords.some((kw) => d.name.toLowerCase().includes(kw)),
@@ -95,7 +94,7 @@ export const findBlackHoleDevice = findSystemAudioDevice;
 // ── ffmpeg-Argumente ───────────────────────────────────────────────────────
 
 function deviceInput(device: AudioDevice): string {
-	return IS_WINDOWS ? `audio="${device.name}"` : `:${device.index}`;
+	return IS_WINDOWS ? `audio=${device.name}` : `:${device.index}`;
 }
 
 function audioFormat(): string {
@@ -175,8 +174,8 @@ export function buildFfmpegArgs(
 			deviceInput(systemDevice),
 			"-filter_complex",
 			"[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0[mic];" +
-				"[1:a]aresample=44100,pan=stereo|c0=c0|c1=c1[sys];" +
-				"[mic][sys]amix=inputs=2:duration=first:dropout_transition=3[out]",
+			"[1:a]aresample=44100,pan=stereo|c0=c0|c1=c1[sys];" +
+			"[mic][sys]amix=inputs=2:duration=first:dropout_transition=3[out]",
 			"-map",
 			"[out]",
 			...commonOut,

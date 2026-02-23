@@ -1,5 +1,4 @@
 import fs from "fs";
-import OpenAI from "openai";
 
 export async function transcribeFile(
 	filePath: string,
@@ -10,6 +9,8 @@ export async function transcribeFile(
 	if (!fs.existsSync(filePath)) {
 		throw new Error(`Datei nicht gefunden: ${filePath}`);
 	}
+
+	const { default: OpenAI } = await import("openai");
 
 	const client = new OpenAI({
 		apiKey,

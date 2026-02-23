@@ -19,6 +19,10 @@ brew install ffmpeg
 
 ### Windows
 
+> Für **nur Mikrofon** (`mode: mic`) brauchst du **kein** VB-Cable.
+> VB-Cable/Stereo Mix ist nur nötig für `system` oder `both`.
+> Aktuell nutzt dieses CLI unter Windows `dshow` (nicht `wasapi`-loopback).
+
 ```powershell
 # ffmpeg (Pflicht)
 winget install Gyan.FFmpeg
