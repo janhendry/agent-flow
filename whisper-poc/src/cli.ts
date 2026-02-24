@@ -11,15 +11,21 @@ program
 	.name("whisper-poc")
 	.description("Audio aufnehmen und mit Whisper transkribieren")
 	.version("0.1.0")
-	.action(() => {
-		// Kein Subcommand → interaktive TUI starten
-		startApp();
+	.action(async () => {
+		while (true) {
+			const result = await startApp();
+			if (result === "open-setup") {
+				await setupCommand();
+				continue;
+			}
+			break;
+		}
 	});
 
 // ── setup ──────────────────────────────────────────────────────────────────
 program
 	.command("setup")
-	.description("Interaktives Setup: Modus, Mikrofon und API-Key konfigurieren")
+	.description("Interaktives Setup: Profile, Audio, Pfad, API-Key und Base URL")
 	.action(async () => {
 		await setupCommand();
 	});
@@ -43,6 +49,7 @@ program
 	.option("-l, --language <lang>", "Sprache (ISO 639-1)", "de")
 	.option("-o, --output <datei>", "Transkript-Ausgabedatei (.txt)")
 	.option("-k, --api-key <key>", "OpenAI API-Key")
+	.option("-b, --base-url <url>", "OpenAI-kompatible Base URL")
 	.action(async (file: string, options) => {
 		await transcribeCommand(file, options);
 	});

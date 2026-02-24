@@ -63,11 +63,21 @@ whisper-poc setup
 
 Interaktives Menü zum Konfigurieren:
 
+- **Kompakte Feldliste**: Alle Settings stehen direkt als `Key │ Value` im Menü.
+- **Einzelfeld-Änderung**: Du wählst ein Feld und änderst nur dieses.
+- **Auto-Save**: Jede Änderung wird sofort gespeichert (kein separates Speichern nötig).
+- **Steuerung**: Navigation über Pfeiltasten + Enter.
+
+Verfügbare Felder:
+
 - **Aufnahme-Modus** (`mic` / `system` / `both`)
 - **Mikrofon** (aus Liste der erkannten avfoundation-Geräte)
 - **System-Audio-Quelle** (z. B. `CABLE Output` oder `Stereo Mix`)
 - **Ausgabe-Ordner** (Standard: `~/Desktop/whisper-recordings`)
-- **OpenAI API-Key** (für Transkription)
+- **OpenAI API-Key** (setzen/ersetzen oder löschen)
+- **Base URL** (optional, für OpenAI-kompatible Endpunkte)
+
+Beenden über **`✅ Fertig`**.
 
 Die Konfiguration wird in `~/.whisper-poc/config.json` gespeichert.
 
@@ -132,6 +142,7 @@ Sendet die Datei an die Whisper API und gibt das Transkript aus. Das Ergebnis wi
 | `-l, --language <lang>` | Sprache (ISO 639-1, Standard: `de`)  |
 | `-o, --output <pfad>`   | Ausgabedatei für das Transkript      |
 | `-k, --api-key <key>`   | OpenAI API-Key (überschreibt Config) |
+| `-b, --base-url <url>`  | Base URL (überschreibt Config)       |
 
 ```bash
 # Aufnahme transkribieren (Sprache aus Config)
@@ -172,8 +183,15 @@ Der OpenAI API-Key wird in dieser Reihenfolge gesucht:
 2. Konfigurationsdatei (`whisper-poc setup`)
 3. Umgebungsvariable `OPENAI_API_KEY`
 
+Die Base URL wird in dieser Reihenfolge gesucht:
+
+1. `--base-url` Flag beim Aufruf
+2. Konfigurationsdatei (`whisper-poc setup`)
+3. Umgebungsvariable `OPENAI_BASE_URL`
+
 ```bash
 export OPENAI_API_KEY=sk-...
+export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 ---

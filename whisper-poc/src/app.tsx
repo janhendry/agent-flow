@@ -38,6 +38,8 @@ type Screen =
   | { id: "transcript"; filePath: string }
   | { id: "config" };
 
+export type AppExitReason = "exit" | "open-setup";
+
 interface SharedData {
   config: Config;
   micDevice: AudioDevice;
@@ -1338,7 +1340,11 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
 
 // ── Haupt-App ──────────────────────────────────────────────────────────────
 
-function App() {
+interface AppProps {
+  onRequestSetup: () => void;
+}
+
+function App({ onRequestSetup }: AppProps) {
   const [screen, setScreen] = useState<Screen>({ id: "loading" });
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
 
@@ -1390,7 +1396,7 @@ function App() {
             setScreen({ id: "filepick", action: "play" });
           else if (target === "transcribe")
             setScreen({ id: "filepick", action: "transcribe" });
-          else if (target === "config") setScreen({ id: "config" });
+          else if (target === "config") onRequestSetup();
         }}
       />
     );
@@ -1499,6 +1505,18 @@ function App() {
 
 // ── Entry Point ────────────────────────────────────────────────────────────
 
-export function startApp(): void {
-  render(<App />);
+export function startApp(): Promise<AppExitReason> {
+  return new Promise((resolve) => {
+    let reason: AppExitReason = "exit";
+    let app: ReturnType<typeof render>;
+    app = render(
+      <App
+        onRequestSetup={() => {
+          reason = "open-setup";
+          app.unmount();
+        }}
+      />,
+    );
+    app.waitUntilExit().then(() => resolve(reason));
+  });
 }

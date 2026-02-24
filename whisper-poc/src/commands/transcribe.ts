@@ -9,6 +9,7 @@ interface TranscribeOptions {
 	language?: string;
 	output?: string;
 	apiKey?: string;
+	baseUrl?: string;
 }
 
 export async function transcribeCommand(
@@ -26,14 +27,16 @@ export async function transcribeCommand(
 	const config = configExists() ? loadConfig() : null;
 	const apiKey =
 		options.apiKey ?? config?.apiKey ?? process.env["OPENAI_API_KEY"];
+	const baseUrl =
+		options.baseUrl ?? config?.baseUrl ?? process.env["OPENAI_BASE_URL"];
 
 	if (!apiKey) {
 		console.error(
 			chalk.red("❌  Kein OpenAI API-Key gefunden.\n") +
-				chalk.yellow("   Optionen:\n") +
-				chalk.yellow("   1. `whisper-poc setup` → API-Key eingeben\n") +
-				chalk.yellow("   2. --api-key FLAG beim Aufruf\n") +
-				chalk.yellow("   3. Umgebungsvariable: export OPENAI_API_KEY=sk-..."),
+			chalk.yellow("   Optionen:\n") +
+			chalk.yellow("   1. `whisper-poc setup` → API-Key eingeben\n") +
+			chalk.yellow("   2. --api-key FLAG beim Aufruf\n") +
+			chalk.yellow("   3. Umgebungsvariable: export OPENAI_API_KEY=sk-..."),
 		);
 		process.exit(1);
 	}
@@ -45,13 +48,16 @@ export async function transcribeCommand(
 	console.log(chalk.white("  Datei:     ") + chalk.cyan(absPath));
 	console.log(chalk.white("  Größe:     ") + chalk.cyan(`${sizeKb} KB`));
 	console.log(chalk.white("  Sprache:   ") + chalk.cyan(lang));
+	if (baseUrl) {
+		console.log(chalk.white("  Base URL:  ") + chalk.cyan(baseUrl));
+	}
 	console.log();
 
 	const spinner = ora("Sende an Whisper API...").start();
 
 	let transcript: string;
 	try {
-		transcript = await transcribeFile(absPath, apiKey, lang);
+		transcript = await transcribeFile(absPath, apiKey, lang, baseUrl);
 		spinner.succeed("Transkription erhalten");
 	} catch (err) {
 		spinner.fail("Transkription fehlgeschlagen");
