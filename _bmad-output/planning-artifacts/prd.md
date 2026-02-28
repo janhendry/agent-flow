@@ -15,6 +15,7 @@ stepsCompleted:
     "step-10-nonfunctional",
     "step-11-polish",
     "step-12-complete",
+    "step-01b-continue",
   ]
 inputDocuments:
   - "MVP.md"
@@ -43,27 +44,27 @@ vision:
 
 ## Executive Summary
 
-WhisperFlow ist eine Electron-basierte Desktop-Applikation für macOS (primär) und Windows (sekundär), die Voice-to-Text-Transkription als erstklassigen Input-Kanal in den Entwickler-Workflow integriert. Die App läuft unsichtbar im System Tray und wird über globale Tastaturkürzel aktiviert — kein Kontextwechsel, kein UI-Overhead, kein manuelles Wechseln der Anwendung. Das Transkriptionsergebnis landet direkt in der Zwischenablage, einsatzbereit in jeder Applikation.
+WhisperFlow 2.0 startet als **Core-first Produkt** mit zwei CLI-Interfaces: einer klaren, skriptbaren Unix-CLI (non-interactive) und einer interaktiven, menügeführten CLI. Beide Interfaces laufen auf demselben Core (Domain + Application Use-Cases). Die Electron-App-UI wird bewusst in eine spätere Phase verschoben.
 
 **Zielgruppe:** Softwareentwickler, die Voice als produktiven Eingabekanal nutzen wollen — sowohl für eigene Diktate (Commit-Messages, PR-Beschreibungen, Tickets, Slack-Nachrichten, Dokumentation) als auch für die Transkription von Meetings und Calls.
 
-**Problem:** Desktop-Workflows sind nicht voice-ready. Entwickler sprechen schneller als sie tippen und verbringen einen signifikanten Teil ihres Arbeitstags in Meetings — doch existierende Tools erzwingen Kontextwechsel, haben inakzeptable Latenz oder liefern unzureichende Qualität für technische Inhalte. Der fehlende Layer ist kein besseres Mikrofon und keine bessere KI — es ist die nahtlose Integration in den Desktop-Workflow.
+**Problem:** Der bisherige Plan priorisiert früh UI-Implementierung, obwohl der schnellste Wertnachweis über einen testbaren, deterministischen CLI-Flow möglich ist. Für eine robuste Produktbasis braucht es zuerst einen entkoppelten Core mit stabilen Contracts, bevor zusätzliche Interfaces (Electron UI) aufgebaut werden.
 
 ### Was WhisperFlow besonders macht
 
-Kern-Differenzierer ist **frictionless availability**: WhisperFlow ist immer verfügbar, reagiert wie eine Tastenkombination, und verschwindet nach getaner Arbeit. Kein dediziertes Fenster, kein manueller Upload, keine App die Aufmerksamkeit fordert.
+Kern-Differenzierer ist **Interface-Parität auf einem gemeinsamen Core**: dieselben Use-Cases sind sowohl über Unix-CLI als auch über Interactive CLI nutzbar, ohne Logik-Duplikation.
 
-Die technische Umsetzung — globale OS-Shortcuts, FFmpeg-Audiopipeline, Whisper API, optionale LLM-Nachbearbeitung — ist für den Nutzer unsichtbar. Nutzer-Erfahrung: Shortcut drücken → sprechen → loslassen → Text in der Zwischenablage.
+Die technische Umsetzung fokussiert zuerst auf reproduzierbare CLI-Ausführung: klare Parameter, definierte Exit-Codes, saubere stdout/stderr-Trennung und stabile Automatisierbarkeit in Skripten und Pipelines.
 
 ## Project Classification
 
-| Feld              | Wert                                                          |
-| ----------------- | ------------------------------------------------------------- |
-| Projekttyp        | Desktop App (Electron, cross-platform)                        |
-| Domain            | Productivity / Developer Tooling                              |
-| Komplexität       | Medium (native OS-Integration, externe APIs, FFmpeg-Pipeline) |
-| Projektstatus     | Greenfield                                                    |
-| Primäre Plattform | macOS (Tier 1 & 2), Windows (Tier 3)                          |
+| Feld              | Wert                                                           |
+| ----------------- | -------------------------------------------------------------- |
+| Projekttyp        | Core Service + Dual CLI Interfaces (UI deferred)               |
+| Domain            | Productivity / Developer Tooling                               |
+| Komplexität       | Medium (Audio-Pipeline, externe APIs, Multi-Interface-Adapter) |
+| Projektstatus     | Greenfield                                                     |
+| Primäre Plattform | macOS/Windows CLI zuerst, Electron UI später                   |
 
 ---
 
@@ -103,30 +104,27 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ### MVP — Minimum Viable Product (Tier 1)
 
-| Capability      | Details                                                                                             |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| Audio Recording | Mic-Only, macOS                                                                                     |
-| Audio Pipeline  | FFmpeg WAV → WebM/Opus                                                                              |
-| Transkription   | Whisper API (ohne Prompt)                                                                           |
-| Output          | Clipboard                                                                                           |
-| UI              | System Tray, HUD (4 States), Snackbar-Notifications                                                 |
-| Shortcuts       | Globale Shortcuts für Recording                                                                     |
-| Settings        | API Key, Profile (Recording Mode, Whisper-Modell, Glossar, LLM), Shortcuts, General, Audio, Display |
-| Onboarding      | First-Run-Flow, API-Key-Gate, Test-Recording, BlackHole-Check _(Tier 2)_                            |
+| Capability       | Details                                                                |
+| ---------------- | ---------------------------------------------------------------------- |
+| Core Application | Domain + Use-Cases, interface-agnostisch                               |
+| Audio Pipeline   | FFmpeg WAV → WebM/Opus                                                 |
+| Transkription    | Whisper API (Basisflow)                                                |
+| Unix CLI         | Non-interactive Commands mit klaren Parametern und stabilen Exit-Codes |
+| Interactive CLI  | Menügeführtes Terminal-Interface auf denselben Use-Cases               |
+| Output           | Deterministische Ausgabe via stdout/stderr + Clipboard-Option          |
+| Security         | API-Key sicher speichern (safeStorage/OS-Keychain)                     |
 
 ### Growth Features — Tier 2
 
-- System-Audio + Dual-Recording (macOS via BlackHole)
-- Transcription-Prompt (Whisper Stil/Glossar) + LLM Post-Processing (GPT)
-- Quick History Overlay (alle gespeicherten Transkriptionen) + Storage + Auto-Cleanup
-- Shortcut Recorder (UI), vollständige Settings-Tabs
-- Push-to-Talk Modus (Shortcut halten statt Toggle)
+- Erweiterte CLI-Profile, Glossar-Management und LLM-Post-Processing
+- Persistente History, Fuzzy-Search, Storage-Policies und Cleanup
+- Verbesserte Interactive-CLI-Navigation und Assistenz-Flows
 
 ### Vision — Tier 3
 
-- Code Review Mode, Full History Window (Audio Playback)
-- Silence Detection, Pause/Resume
-- Windows Port (vollständig), Transcription Queue
+- Electron UI Adapter (Tray, HUD, Settings, Onboarding) auf dem bestehenden Core
+- Zusätzliche Interface-Parität zwischen CLI und UI
+- Erweiterte Automations- und Queue-Szenarien
 
 ---
 
@@ -188,146 +186,101 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ### Project-Type Overview
 
-WhisperFlow ist eine Electron-basierte Desktop-Applikation. Die Architektur wird von Anfang an cross-platform-fähig designed — macOS ist Tier 1 & 2 Zielplattform, Windows Tier 3. Alle plattformspezifischen Integrationen werden abstrahiert, sodass der Windows-Port kein Refactoring der Kernlogik erfordert.
+WhisperFlow folgt einem Core-first Ansatz mit Adapter-Architektur. In Tier 1/Tier 2 sind die primären Interfaces CLI-basiert (Unix-CLI + Interactive CLI). Die Electron-App wird als späterer Adapter integriert, ohne Refactoring des Core.
 
 ### Technical Architecture Considerations
 
-**Cross-Platform-Strategie:**
+**Layer-Strategie:**
 
-- Plattformspezifischer Code (Shortcuts, System Tray, Audio-Capture) wird hinter Abstraktionsschichten gekapselt
-- Electron-Renderer-Code (React) ist vollständig plattformunabhängig
-- Platform-Adapters für macOS-spezifische Features (BlackHole, globale Shortcuts) werden so designed, dass Windows-Äquivalente (WASAPI) später einsteckbar sind
+- Core Layer: Domain + Application Use-Cases (UI/CLI-agnostisch)
+- Adapter Layer: Unix-CLI Adapter und Interactive-CLI Adapter (jetzt), Electron Adapter (später)
+- Infrastruktur (Audio, API, Storage, Security) wird zentral und adapterübergreifend genutzt
 
-**IPC-Architektur:**
+**CLI Contract:**
 
-Alle State-Änderungen (Recording-Status, HUD-Zustand, Settings, Snackbar-Queue etc.) fließen ausschließlich über **NanoStores + `@janhendry/nanostore-ipc-bridge`** — automatischer Broadcast an alle Renderer ohne manuelles IPC-Boilerplate.
+- Non-interactive CLI: klare Parameter-Schnittstelle, stdout für Ergebnis, stderr für Fehler, stabile Exit-Codes
+- Interactive CLI: menügeführte Navigation, intern dieselben Use-Cases wie non-interactive CLI
+- Deterministische Output-Optionen (human-readable und skriptfreundlich)
 
-Für **Audio-Level-Daten** wird ergänzend ein **dedizierter `MessagePort` pro HUD-Renderer-Instanz** eingesetzt — ausschließlich für diesen einen Hochfrequenz-Stream:
+**Adapter-Parität:**
 
-- Der HUD-Renderer erhält beim Öffnen einen dedizierten `MessagePort` vom Main Process
-- RMS-Pegel-Werte (berechnet im Main Process) werden als `Float32Array`-Chunks über diesen Channel gestreamt — kein NanoStore-Overhead für Hochfrequenz-Daten
-- `contextIsolation: true` bleibt aktiv; der MessagePort wird sicher via Preload-Script exponiert
-- Cross-Origin-Isolation (COOP/COEP-Header) wird für den HUD-Renderer gesetzt, um `SharedArrayBuffer` als zukünftige Erweiterungsoption offenzuhalten
-
-_Technische Grundlage: [technical-electron-audio-streaming-main-renderer-waveform-research-2026-02-21.md](_bmad-output/planning-artifacts/research/technical-electron-audio-streaming-main-renderer-waveform-research-2026-02-21.md)_
-
-**Audiopegel-Management:**
-
-- Der Main Process liest PCM-Buffer-Chunks vom Audio-Input kontinuierlich aus
-- RMS-Pegel wird pro Chunk berechnet und an den HUD-Renderer gestreamt
-- Der HUD-Renderer visualisiert den Live-Pegel über Canvas + `requestAnimationFrame` (60fps-synchron)
-- Peak-Hold und Clipping-Detection werden im Main Process berechnet, um den Renderer zu entlasten
+- Alle kritischen Funktionen (record, transcribe, output, errors) müssen aus beiden CLI-Modi erreichbar sein
+- Business-Regeln dürfen nicht in Adaptern dupliziert werden
+- Electron-spezifische Anforderungen werden erst in Tier 3 aktiviert
 
 **Auto-Update:**
 
-- `electron-updater` wird integriert
-- Update-Mechanismus ist Teil des Distributions-Setups — von Anfang an eingeplant, nicht MVP-blockierend
+- Für CLI-first Releases optional und distributionsabhängig
+- Electron-Update-Mechanismus wird bei UI-Phase konkretisiert
 
 ### System Integration
 
-**macOS Permissions — Teil des First-Run-Onboarding-Flows:**
+**System-Integration (CLI-first):**
 
-| Permission    | Trigger                        | UI                                                                     |
-| ------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| Microphone    | Erste Aufnahme / First-Run     | macOS System-Dialog + Erklärung im Onboarding                          |
-| Accessibility | Globale Shortcuts registrieren | Explizite Anleitung im Onboarding (System Preferences → Accessibility) |
-
-Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Scheitern, keine nachträgliche Fehlermeldung ohne Kontext.
-
-**System Tray:** Primärer Interaktionspunkt. App hat kein permanentes Hauptfenster — nur HUD, Settings und Onboarding öffnen Fenster.
+- API-Key und Audio-Abhängigkeiten werden über CLI-Setup- und Diagnose-Kommandos geprüft
+- Plattformabhängigkeiten (z. B. BlackHole für System-Audio) werden im CLI klar validiert und gemeldet
+- Kein UI-Onboarding im MVP 2.0 erforderlich
 
 ### Platform Support Matrix
 
-| Plattform                     | Tier  | Status                                               |
-| ----------------------------- | ----- | ---------------------------------------------------- |
-| macOS (Apple Silicon + Intel) | 1 & 2 | Vollständig unterstützt                              |
-| Windows 10/11                 | 3     | Architektonisch vorbereitet, spätere Implementierung |
-| Linux                         | —     | Nicht geplant                                        |
+| Plattform     | Tier  | Status                                       |
+| ------------- | ----- | -------------------------------------------- |
+| macOS         | 1 & 2 | CLI vollständig unterstützt                  |
+| Windows 10/11 | 1 & 2 | CLI funktional unterstützt (adapterabhängig) |
+| Linux         | —     | Nicht geplant                                |
 
 ### Implementation Considerations
 
-- FFmpeg wird via `ffmpeg-static` npm-Package gebündelt (macOS ARM64/x64, Windows x64) — kein User-Install nötig, `asarUnpack` Pflicht in forge.config.ts
-- BlackHole (System-Audio, Tier 2) ist BYOF — Setup-Anleitung im Onboarding (Tier 2)
-- Globale Shortcuts via Electron-Global-Shortcut API — Accessibility-Permission-Abhängigkeit dokumentiert
-- System-Audio-Capture (Tier 2) ist macOS-spezifisch via BlackHole — Windows-Äquivalent (WASAPI) für Tier 3 vorgesehen
-- Offline-Modus: Online-only via Whisper API bewusst akzeptiert — lokales Whisper-Modell (`whisper.cpp`) ist nicht geplant
+- FFmpeg via `ffmpeg-static` für CLI-Pipeline
+- Audio-Capture Adapter abstrahiert (Mic zuerst, System-Audio als Erweiterung)
+- Whisper API zunächst online-only
+- Electron-spezifische Runtime-Themen werden in UI-Phase ergänzt
 
 ---
 
 ## Functional Requirements
 
-### Audio Recording
+### Core & Use-Cases
 
-- **FR1:** Nutzer kann eine Mic-Only-Aufnahme über einen globalen Shortcut starten und stoppen
-- **FR2:** Nutzer kann eine System-Audio-Only-Aufnahme über einen globalen Shortcut starten und stoppen _(Tier 2)_
-- **FR3:** Nutzer kann eine Dual-Recording-Aufnahme (Mic + System-Audio gleichzeitig) über einen globalen Shortcut starten und stoppen _(Tier 2)_
-- **FR4:** Nutzer kann den Recording-Modus pro Profil konfigurieren — das aktive Profil bestimmt den Recording-Modus
-- **FR5:** Das System erkennt verfügbare Audiogeräte automatisch und unterstützt Hot-plug
-- **FR6:** Das System verifiziert beim Start, dass die gebündelte FFmpeg-Binary ausführbar ist — bei Fehler (korrumpierte Installation) wird eine Fehlermeldung mit Hinweis auf Neuinstallation der App angezeigt
-- **FR7:** Das System prüft beim Start, ob BlackHole verfügbar ist (wenn Dual-/System-Audio-Modus gewählt), und zeigt Setup-Anleitung _(Tier 2)_
+- **FR1:** Das System implementiert einen interface-agnostischen Core mit klaren Domain- und Application-Use-Cases.
+- **FR2:** Alle zentralen Business-Flows (record, transcribe, output, error handling) sind ausschließlich im Core implementiert.
+- **FR3:** Adapter dürfen keine Business-Regeln duplizieren.
 
-### Transkription
+### Unix-CLI (non-interactive)
 
-- **FR8:** Das System sendet die aufgenommene Audiodatei nach Ende der Aufnahme an die Whisper API zur Transkription
-- **FR9:** Nutzer kann ein Glossar (Whisper-Kontext-Prompt) pro Profil konfigurieren — Glossare werden in einer Bibliothek verwaltet und sind Bestandteil des aktiven Profils
-- **FR10:** Das System kann den transkribierten Text nach der Whisper-Verarbeitung durch ein LLM (GPT) nachbearbeiten lassen
-- **FR11:** Nutzer kann LLM Post-Processing pro Profil aktivieren oder deaktivieren (ON/OFF Switch)
+- **FR4:** Nutzer kann Kernfunktionen über parameterbasierte CLI-Kommandos ausführen.
+- **FR5:** CLI-Kommandos liefern maschinenlesbare, deterministische Ausgaben.
+- **FR6:** Erfolgsoutput wird über `stdout`, Fehler über `stderr` ausgegeben.
+- **FR7:** Jeder relevante Fehlerfall besitzt einen definierten Exit-Code.
+- **FR8:** CLI-Kommandos unterstützen pipeline-fähige Nutzung (Unix Pattern).
 
-### Output & Clipboard
+### Interactive CLI (menügeführt)
 
-- **FR12:** Das System kopiert das Transkriptionsergebnis automatisch in die System-Zwischenablage
-- **FR13:** Nutzer kann vergangene Transkriptionen in einem Quick History Overlay einsehen und per Fuzzy-Search filtern _(Tier 2)_
-- **FR14:** Nutzer kann einen Eintrag aus der History erneut in die Zwischenablage kopieren _(Tier 2)_
+- **FR9:** Nutzer kann über ein interaktives Terminal-Menü durch verfügbare Aktionen navigieren.
+- **FR10:** Das Interactive CLI nutzt dieselben Core-Use-Cases wie die Unix-CLI.
+- **FR11:** Interaktive Flows führen Setup, Aufnahme, Transkription und Ausgabe schrittweise durch.
+- **FR12:** Nutzer erhält klare, handlungsorientierte Fehlerrückmeldungen im Terminal.
 
-### System Tray & Globale Shortcuts
+### Audio & Transkription
 
-- **FR15:** Die App läuft als System-Tray-Applikation ohne permanentes Hauptfenster
-- **FR16:** Nutzer kann über das Tray-Icon auf Settings, History-Overlay, Profil-Wechsel und Quit zugreifen
-- **FR17:** Nutzer kann globale Tastaturkürzel für Recording-Aktionen konfigurieren
-- **FR18:** Globale Shortcuts funktionieren unabhängig davon, welche App im Vordergrund ist
-- **FR19:** Nutzer kann den Shortcut-Recorder nutzen, um Shortcuts per UI neu zu belegen _(Tier 2)_
+- **FR13:** Das System kann Mic-Only-Aufnahmen ausführen und in einen Transkriptionsflow überführen.
+- **FR14:** Die Audio-Pipeline nutzt FFmpeg (WAV → WebM/Opus).
+- **FR15:** Das System sendet aufgenommene Audio-Dateien an die Whisper API.
+- **FR16:** Das Ergebnis wird standardmäßig in die Zwischenablage kopiert und kann optional auf `stdout` ausgegeben werden.
 
-### HUD & Feedback
+### Konfiguration & Sicherheit
 
-- **FR20:** Das System zeigt ein HUD mit dem Status "Recording" während einer aktiven Aufnahme — inklusive Live-Audiopegel-Visualisierung (Level Meter), damit der Nutzer sofortiges visuelles Feedback erhält, dass das Mikrofon aktives Signal empfängt
-- **FR20a:** Das HUD zeigt einen animierten Audiopegel-Indikator (Level Meter) in Echtzeit während der Aufnahme — der Pegel wird kontinuierlich vom Main Process über einen dedizierten MessagePort-Channel gestreamt und via Canvas dargestellt
-- **FR20b:** Das HUD zeigt Clipping-Feedback (visueller Hinweis) wenn der Eingangspegel den Maximalwert überschreitet, damit der Nutzer die Aufnahmedistanz oder Lautstärke anpassen kann
-- **FR21:** Das System zeigt ein HUD mit dem Status "Transcribing" während der API-Verarbeitung
-- **FR22:** Das System zeigt eine Erfolgsbestätigung ("✓") wenn das Transkript in der Zwischenablage ist
-- **FR22a:** Das System kann optional ein TranscriptOverlay anzeigen, das den transkribierten Text kurz einblendet bevor er in die Zwischenablage kopiert wird — standardmäßig deaktiviert, pro Profil zuschaltbar _(Tier 2)_
-- **FR23:** Das System zeigt eine Fehlermeldung wenn Aufnahme oder Transkription fehlschlägt
-- **FR24:** Das System zeigt Snackbar-Benachrichtigungen für folgende Ereignisse: Aufnahme gestartet, Transkription abgeschlossen, Fehler bei Aufnahme oder Transkription, Update verfügbar
+- **FR17:** Nutzer kann API-Key sicher speichern und abrufen.
+- **FR18:** Das System bietet CLI-Setup- und Diagnose-Kommandos (Dependencies, API-Erreichbarkeit, Konfiguration).
+- **FR19:** Konfiguration ist persistierbar und für beide CLI-Modi konsistent.
 
-### Settings & Konfiguration
+### Erweiterungen (Tier 2+)
 
-- **FR25:** Nutzer kann seinen OpenAI API Key eingeben und speichern
-- **FR26:** Nutzer kann den Recording-Modus (Mic Only / System Audio / Dual) pro Profil konfigurieren — kein globaler Modus, der Modus ist Bestandteil des aktiven Profils
-- **FR26a:** Nutzer kann den Aufnahme-Interaktionsmodus konfigurieren: Toggle (einmal drücken startet, nochmal drücken stoppt) oder Push-to-Talk (Shortcut halten zum Aufnehmen, loslassen stoppt) _(Tier 2)_
-- **FR27:** Nutzer kann globale Shortcuts für alle Recording-Aktionen konfigurieren
-- **FR27a:** Nutzer kann Profile erstellen, bearbeiten, duplizieren und löschen — jedes Profil enthält: Name, Recording Mode, Whisper-Modell, Glossar (optional), LLM ON/OFF, LLM-Modell (optional), System Prompt (optional)
-- **FR27b:** Nutzer kann das aktive Profil über ein Spotlight-style Overlay wechseln (Shortcut: ⌘⇧P)
-- **FR27c:** Nutzer kann System Prompts und Glossare in einer Bibliothek verwalten (erstellen, bearbeiten, löschen) und in Profilen referenzieren
-- **FR28:** Nutzer kann die Transkriptions-Sprache global in Settings → General konfigurieren (Auto-detect oder explizite Sprache)
-- **FR29:** Nutzer kann die Aufbewahrungszeit (TTL) für gespeicherte Aufnahmen in den Settings konfigurieren _(Tier 2)_
-
-### Onboarding & Erster Start
-
-- **FR30:** Die App erkennt beim ersten Start, dass noch kein API Key konfiguriert ist, und führt den Nutzer durch einen First-Run-Flow
-- **FR31:** Das System fordert beim First-Run aktiv die benötigten macOS-Permissions an (Mikrofon, Accessibility) mit erklärender UI
-- **FR32:** Das System führt nach API-Key-Eingabe automatisch ein Test-Recording durch, um die Konfiguration zu validieren
-- **FR33:** Das System prüft beim Onboarding automatisch, ob BlackHole verfügbar ist (für System-Audio-Modus), und zeigt Setup-Anleitung bei Fehlen _(Tier 2)_
-- **FR34:** Nach erfolgreichem Onboarding zieht sich die App in den System Tray zurück
-
-### Storage & Datenverwaltung
-
-- **FR35:** Das System speichert Transkriptionen lokal mit Metadaten (Timestamp, Dauer, Modus) _(Tier 2)_
-- **FR36:** Das System bereinigt Temp-Audiodateien (`recordings/temp/`) automatisch nach einer konfigurierbaren Aufbewahrungszeit — Standard-TTL greift out-of-the-box (Tier 1); Nutzer kann die TTL in den Settings anpassen _(Tier 2)_; Cleanup-Job läuft beim App-Start
-- **FR37:** Nutzer kann den Speicherort für Aufnahmen konfigurieren _(Tier 2)_
-
-### Auto-Update & Distribution
-
-- **FR38:** Das System prüft auf Updates und benachrichtigt den Nutzer, wenn eine neue Version verfügbar ist
-- **FR39:** Nutzer kann den Update-Modus konfigurieren: automatisch im Hintergrund installieren oder nur benachrichtigen (manuell installieren)
+- **FR20:** System-Audio/Dual-Recording wird als erweiterter Adapter ergänzt.
+- **FR21:** Glossar- und LLM-Post-Processing wird als optionaler Core-Workflow ergänzt.
+- **FR22:** History/Storage/Cleanup werden als nachgelagerte Capability ergänzt.
+- **FR23:** Electron UI wird als separater Adapter auf dem Core ergänzt.
+- **FR24:** UI und CLI bleiben funktional konsistent (Interface-Parität).
 
 ---
 
@@ -335,28 +288,25 @@ Beide Permissions werden im First-Run-Flow aktiv adressiert — kein stilles Sch
 
 ### Performance
 
-- **NFR1:** Der globale Shortcut reagiert innerhalb von 200ms (Recording startet ohne wahrnehmbare Verzögerung)
-- **NFR2:** Die App startet und ist im System Tray verfügbar ohne merkliche Verzögerung beim Login
-- **NFR3:** FFmpeg-Encoding (WAV → WebM/Opus) läuft schneller als Echtzeit (kein Bottleneck vor API-Call)
-- **NFR4:** Die App verursacht im Idle-Zustand (kein Recording) weniger als 50MB RAM und unter 1% CPU
+- **NFR1:** CLI-Kommandos starten mit geringer Latenz und sind skriptgeeignet.
+- **NFR2:** FFmpeg-Encoding (WAV → WebM/Opus) läuft schneller als Echtzeit.
+- **NFR3:** Non-interactive CLI-Ausgaben sind deterministisch und reproduzierbar.
+- **NFR4:** Interactive CLI bleibt responsiv und blockiert nicht dauerhaft durch UI-Overhead.
 
 ### Reliability
 
-- **NFR5:** Die App läuft stabil im Hintergrund ohne Memory Leaks bei kontinuierlicher Nutzung über mehrere Stunden
-- **NFR6:** Globale Shortcuts werden nach App-Neustart sowie nach System-Sleep/Wake zuverlässig neu registriert
-- **NFR7:** Ein fehlgeschlagener API-Call (Timeout, Netzwerkfehler) führt zu einer klaren Fehlermeldung — kein stiller Fehler, kein Absturz
+- **NFR5:** Core-Use-Cases sind stabil und adapterunabhängig nutzbar.
+- **NFR6:** Fehler in externen Abhängigkeiten (API, Audio, FFmpeg) werden robust behandelt.
+- **NFR7:** Fehlgeschlagene API-Calls liefern klare Fehlermeldung und Exit-Code.
 
-### Accessibility
+### CLI Usability
 
-- **NFR8:** Die App respektiert macOS System-Accessibility-Einstellungen (z.B. Reduced Motion für HUD-Animationen und Level-Meter-Animation)
-
-### Audio Level Stream Performance
-
-- **NFR9:** Audiopegel-Daten werden mit einer Latenz von unter 50ms vom Main Process an den HUD-Renderer gestreamt — visuelles Feedback ist für den Nutzer wahrnehmbar synchron zur Spracheingabe
-- **NFR10:** Die Audiopegel-Visualisierung läuft mit mindestens 30fps ohne spürbaren CPU-Overhead — der Render-Loop ist via `requestAnimationFrame` auf den Display-Refresh synchronisiert
-- **NFR11:** Der MessagePort-Channel für Audio-Level-Streaming wird beim Schließen des HUD-Fensters sauber terminiert — kein Memory Leak durch offene Ports
+- **NFR8:** CLI-Hilfe und Fehlermeldungen sind präzise, kurz und handlungsorientiert.
+- **NFR9:** Interactive CLI ist vollständig per Tastatur bedienbar.
+- **NFR10:** Beide CLI-Modi nutzen ein einheitliches Command-/Terminologie-Modell.
+- **NFR11:** Exit-Codes bleiben über Versionen stabil oder werden kompatibel migriert.
 
 ### Security & Datenschutz
 
-- **NFR12:** API Keys und Credentials werden verschlüsselt gespeichert (via OS-Keychain/safeStorage) — niemals als Plaintext auf der Festplatte
-- **NFR13:** Lokale Transkriptions- und Audiodaten werden ausschließlich im User-Kontext gespeichert (App-Verzeichnis) — keine Übertragung an Dritte außer der konfigurierten Whisper/LLM-API
+- **NFR12:** API-Keys und Credentials werden verschlüsselt gespeichert (OS-Keychain/safeStorage).
+- **NFR13:** Lokale Daten bleiben im User-Kontext; externe Übertragung nur an konfigurierte APIs.

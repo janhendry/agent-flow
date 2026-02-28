@@ -33,69 +33,39 @@
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
-generated: 2026-02-22
+generated: 2026-02-24
 project: agent-flow
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 
 development_status:
-  # ── Epic 1: App Foundation & System Tray (MVP) ──
-  epic-1: in-progress
-  1-1-electron-forge-projekt-scaffolding-basis-dependencies: done
-  1-2-shared-types-ipc-foundation-nanostore-setup: done
-  1-3-window-manager-design-system-foundation: done
-  1-4-system-tray-kontextmenu-ffmpeg-verification: ready-for-dev
-  epic-1-retrospective: optional
+  # ── 2.0 Pivot (Core + CLI first) approved via Correct Course on 2026-02-24 ──
 
-  # ── Epic 2: Core Recording & Transcription Pipeline (MVP) ──
-  epic-2: backlog
-  2-1-recording-state-machine-audio-device-detection: backlog
-  2-2-ffmpeg-audio-recording-encoding-pipeline: backlog
-  2-3-api-key-storage-whisper-api-integration: backlog
-  2-4-global-shortcuts-clipboard-output-end-to-end-flow: backlog
-  epic-2-retrospective: optional
+  # ── Epic A: Core Domain/Application Foundation (MVP 2.0) ──
+  epic-a: in-progress
+  a-1-core-domain-models-and-use-case-interfaces: ready-for-dev
+  a-2-application-services-and-port-contracts: backlog
+  a-3-error-model-and-exit-code-mapping: backlog
+  epic-a-retrospective: optional
 
-  # ── Epic 3: HUD Feedback System (MVP) ──
-  epic-3: backlog
-  3-1-hud-browserwindow-floating-pill-layout: backlog
-  3-2-audio-level-bars-echtzeit-pegel-visualisierung: backlog
-  3-3-transcribing-success-error-hud-states: backlog
-  3-4-snackbar-benachrichtigungen: backlog
-  epic-3-retrospective: optional
+  # ── Epic B: Unix-Style CLI Interface (MVP 2.0) ──
+  epic-b: backlog
+  b-1-cli-command-contract-and-argument-schema: backlog
+  b-2-non-interactive-command-execution-pipeline: backlog
+  b-3-stdin-stdout-stderr-and-deterministic-output: backlog
+  epic-b-retrospective: optional
 
-  # ── Epic 4: Onboarding & First-Run Experience (MVP) ──
-  epic-4: backlog
-  4-1-first-run-detection-welcome-screen: backlog
-  4-2-api-key-gate-validation: backlog
-  4-3-macos-permissions-test-recording: backlog
-  epic-4-retrospective: optional
+  # ── Epic C: Interactive CLI Interface (MVP 2.0) ──
+  epic-c: backlog
+  c-1-interactive-menu-shell-and-navigation: backlog
+  c-2-interactive-flows-wired-to-core-use-cases: backlog
+  c-3-ux-polish-help-and-command-discoverability: backlog
+  epic-c-retrospective: optional
 
-  # ── Epic 5: Settings & Customization (MVP) ──
-  epic-5: backlog
-  5-1-settings-window-shell-tab-navigation: backlog
-  5-2-general-shortcuts-tabs: backlog
-  5-3-api-key-audio-display-tabs: backlog
-  5-4-about-tab-auto-update-temp-file-cleanup: backlog
-  epic-5-retrospective: optional
-
-  # ── Epic 6: Profile System & Advanced Transcription (Tier 2) ──
-  epic-6: backlog
-  6-1-profile-crud-default-profil: backlog
-  6-2-system-prompts-glossare-llm-integration: backlog
-  6-3-profil-wechsel-overlay-push-to-talk: backlog
-  6-4-shortcut-recorder-ui: backlog
-  epic-6-retrospective: optional
-
-  # ── Epic 7: System Audio & Dual Recording (Tier 2) ──
-  epic-7: backlog
-  7-1-blackhole-detection-setup-guidance: backlog
-  7-2-system-audio-dual-recording-implementation: backlog
-  epic-7-retrospective: optional
-
-  # ── Epic 8: History & Transcript Management (Tier 2) ──
-  epic-8: backlog
-  8-1-persistente-transcript-speicherung: backlog
-  8-2-history-overlay-mit-fuzzy-search: backlog
-  8-3-transcript-overlay-optional: backlog
-  epic-8-retrospective: optional
+  # ── Epic D: Electron UI Interface (Deferred after CLI MVP) ──
+  epic-d: backlog
+  d-1-electron-adapter-bootstrap-on-core: backlog
+  d-2-tray-hud-settings-onboarding-reintegration: backlog
+  d-3-ui-parity-with-core-and-cli-capabilities: backlog
+  epic-d-retrospective: optional
