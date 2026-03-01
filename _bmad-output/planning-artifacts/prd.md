@@ -74,7 +74,7 @@ Die technische Umsetzung fokussiert zuerst auf reproduzierbare CLI-Ausführung: 
 
 - Entwickler integriert WhisperFlow in seinen täglichen Workflow ohne Bewusstsein für das Tool selbst — Voice wird so selbstverständlich wie Cmd+C
 - Transkriptionsqualität für technischen Wortschatz (Variablennamen, Frameworks, Fachbegriffe) ist hoch genug für direkten Copy-Paste ohne manuelle Korrektur
-- Globale Shortcuts funktionieren zuverlässig, unabhängig davon welche App im Vordergrund ist
+- Für die UI-Phase (Tier 3): Globale Shortcuts funktionieren zuverlässig, unabhängig davon welche App im Vordergrund ist
 - Onboarding (API-Key, Test-Recording) funktioniert ohne Support-Bedarf
 
 ### Business Success
@@ -89,7 +89,7 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 - App startet zuverlässig und läuft stabil im Hintergrund ohne signifikante RAM/CPU-Last
 - Keine Abstürze oder Datenverluste bei längeren Recordings
-- Kompatibilität mit macOS (Tier 1 & 2) sichergestellt; Windows (Tier 3) funktional portierbar
+- Kompatibilität mit macOS und Windows 10/11 (Tier 1 & 2) für CLI sichergestellt; UI-spezifische Shortcut-Features folgen in Tier 3
 
 ### Measurable Outcomes
 
@@ -130,55 +130,87 @@ Open-Source-Projekt ohne kommerziellen Zweck. Erfolg wird an Community-Adoption 
 
 ## User Journeys
 
-### Journey 1: Marcus — Der diktierende Entwickler
+### Journey 1: Marcus — Diktieren direkt in der Unix-CLI
 
-**Persona:** Marcus, Senior Developer, arbeitet remote. Schneller Denker, langsamer Tipper. Schreibt täglich Dutzende kleine Texte: Commit-Messages, Jira-Tickets, Slack-Nachrichten, PR-Beschreibungen.
+**Persona:** Marcus, Senior Developer, arbeitet remote. Schneller Denker, langsamer Tipper. Schreibt täglich Commit-Messages, Tickets, Slack-Nachrichten und PR-Beschreibungen.
 
-**Opening Scene:** Marcus schließt einen Bugfix ab. Er muss eine Commit-Message schreiben — wie immer tippt er `fix stuff` weil alles andere zu aufwendig ist. Dabei hat er die Beschreibung im Kopf, er könnte sie in 10 Sekunden sprechen. Aber tippen dauert 60 Sekunden und kostet Konzentration.
+**Opening Scene:** Marcus schließt einen Bugfix ab. Für die Commit-Message fehlt ihm Zeit, also landet wieder ein generisches _"fix stuff"_ im Log. Er weiß: sprechen wäre schneller, aber der bisherige Flow ist zu umständlich.
 
-**Rising Action:** Marcus drückt den globalen Shortcut. Das HUD erscheint unauffällig am Bildschirmrand — Recording-Indikator. Er spricht: _"Fix null pointer exception in user authentication when token expires during active session."_ Shortcut loslassen.
+**Rising Action:** Marcus nutzt den non-interactive CLI-Befehl für Aufnahme + Transkription mit Clipboard-Output. Er spricht: _"Fix null pointer exception in user authentication when token expires during active session."_ Der Befehl läuft deterministisch, Exit-Code 0, Ergebnis liegt in der Zwischenablage.
 
-**Climax:** Das HUD wechselt kurz auf „Transcribing" — dann „✓". Marcus klickt in das Commit-Feld und drückt Cmd+V. Die exakte Formulierung steht da, fertig.
+**Climax:** Marcus fügt den Text direkt in `git commit` ein. Keine Nacharbeit, keine Kontextwechsel, kein UI nötig.
 
-**Resolution:** Marcus bemerkt nach zwei Wochen, dass er aufgehört hat, schlechte Commit-Messages zu schreiben. Nicht weil er sich mehr Mühe gibt — sondern weil es jetzt keinen Aufwand mehr kostet.
-
----
-
-### Journey 2: Marcus — Meeting-Transkription (Dual-Recording)
-
-**Persona:** Derselbe Marcus, jetzt in einem Architektur-Meeting mit dem Team via Zoom (Tier 2).
-
-**Opening Scene:** Das Meeting beginnt. Entscheidungen werden getroffen, Action Items vergeben. Marcus weiß: die Hälfte wird vergessen sein, bevor er Zeit hat, Notizen zu schreiben.
-
-**Rising Action:** Marcus drückt den Shortcut für Dual-Recording — Mic + System-Audio läuft im Hintergrund. Er fokussiert sich voll aufs Gespräch, ohne gleichzeitig mitschreiben zu müssen. Das HUD zeigt dezent den laufenden Timer.
-
-**Climax:** Meeting endet. Marcus stoppt die Aufnahme. WhisperFlow transkribiert das komplette Gespräch — alle Stimmen, alle Entscheidungen.
-
-**Resolution:** Marcus kopiert die relevanten Passagen direkt in sein Ticket-System. Keine Erinnerungslücken. Das Meeting ist dokumentiert ohne zusätzlichen Aufwand.
+**Resolution:** Nach zwei Wochen sind seine Commit-Messages konsistent präzise — nicht durch mehr Disziplin, sondern weil der schnellste Weg jetzt der qualitativ beste ist.
 
 ---
 
-### Journey 3: Erster Start — Onboarding
+### Journey 2: Marcus — Meeting-Transkription als CLI-Flow (Tier 2)
 
-**Persona:** Alex, Entwickler, hat WhisperFlow gerade installiert. Hat einen OpenAI API Key, aber noch nie eine Electron-App manuell konfiguriert.
+**Persona:** Derselbe Marcus, jetzt in einem Architektur-Meeting mit dem Team via Zoom.
 
-**Opening Scene:** App startet. Kein leeres Interface, keine überfordernde Settings-Seite. Ein klarer First-Run-Flow: API Key eingeben.
+**Opening Scene:** Das Meeting startet, Entscheidungen fallen schnell. Marcus möchte sich auf das Gespräch konzentrieren statt parallel Notizen zu tippen.
 
-**Rising Action:** Alex gibt den Key ein. WhisperFlow führt sofort ein Test-Recording durch — 3 Sekunden sprechen, Transkription erscheint. Funktioniert. Shortcut ist gesetzt.
+**Rising Action:** Marcus startet den erweiterten CLI-Flow für Dual-Recording (Mic + System-Audio). Der Laufzeitstatus bleibt terminalbasiert und skriptbar; nach Ende stoppt er die Aufnahme per Befehl.
 
-**Climax:** Setup-Flow endet. App zieht sich in den System Tray zurück. Alex sieht: ein kleines Icon. Fertig.
+**Climax:** WhisperFlow transkribiert die Session und gibt das Ergebnis reproduzierbar aus (Datei + optional `stdout`).
 
-**Resolution:** Alex hat in unter 3 Minuten eine funktionierende Voice-to-Text-Pipeline auf seinem Rechner — und wusste zu keinem Zeitpunkt, dass FFmpeg involviert war.
+**Resolution:** Marcus übernimmt die relevanten Passagen direkt in Tickets und Doku. Das Meeting ist dokumentiert, ohne dass währenddessen manuell mitgeschrieben werden musste.
+
+---
+
+### Journey 3: Erster Start — CLI-Setup & Diagnose
+
+**Persona:** Alex, Entwickler, hat WhisperFlow frisch installiert und einen OpenAI API Key.
+
+**Opening Scene:** Alex öffnet das Terminal und startet den Setup-Flow. Statt UI-Wizard bekommt er einen klaren, schrittweisen CLI-Prozess.
+
+**Rising Action:** Alex hinterlegt den API-Key sicher im OS-Keychain/Safe Storage, führt anschließend den Diagnose-Befehl aus und startet ein kurzes Test-Recording.
+
+**Climax:** Die Diagnose meldet Abhängigkeiten und API-Erreichbarkeit als OK; die Test-Transkription erscheint erfolgreich.
+
+**Resolution:** In unter drei Minuten ist die Voice-to-Text-Pipeline einsatzbereit — reproduzierbar, skriptbar und ohne Electron-Onboarding im MVP.
 
 ---
 
 ### Journey Requirements Summary
 
-| Journey               | Revealed Capabilities                                                |
-| --------------------- | -------------------------------------------------------------------- |
-| Diktieren             | Globale Shortcuts, HUD, Clipboard-Output, Mic Recording, Whisper API |
-| Meeting-Transkription | Dual-Recording, System-Audio-Capture, BlackHole-Integration (Tier 2) |
-| Onboarding            | API-Key-Gate, Test-Recording, First-Run-Flow, System Tray            |
+| Journey               | Revealed Capabilities                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| Diktieren             | Non-interactive CLI, Mic Recording, Whisper API, Clipboard-Output, stabile Exit-Codes |
+| Meeting-Transkription | Erweiterter CLI-Flow, Dual-Recording, System-Audio-Capture (Tier 2), Datei/`stdout`   |
+| Onboarding            | CLI-Setup, sicherer API-Key-Store, Diagnose-Kommandos, Test-Recording                 |
+
+### Traceability Matrix (Journey → FR)
+
+| Journey                                       | Primäre FR-Abdeckung                            | Ergänzende FRs         |
+| --------------------------------------------- | ----------------------------------------------- | ---------------------- |
+| Journey 1: Diktieren (Unix-CLI)               | FR4, FR5, FR6, FR7, FR8, FR13, FR14, FR15, FR16 | FR1, FR2, FR3          |
+| Journey 2: Meeting-Transkription (Tier 2 CLI) | FR20, FR22                                      | FR13, FR14, FR15, FR16 |
+| Journey 3: CLI-Setup & Diagnose               | FR17, FR18, FR19                                | FR9, FR10, FR11, FR12  |
+
+**Hinweis:** Globale Shortcuts sind ein UI-spezifisches Zielbild für Tier 3 und werden über den Electron-Adapter (FR23, FR24) abgedeckt, nicht über den Tier-1/Tier-2-CLI-Core.
+
+### UI Journeys (Tier 3, später)
+
+Die folgenden Journeys bleiben als Zielbild für die spätere Electron-App bestehen. Sie sind **nicht** Teil des MVP/Tier 1, sondern werden nach stabiler CLI-Basis aktiviert.
+
+#### UI Journey A: Diktieren per globalem Shortcut + HUD
+
+- Nutzer startet Recording per globalem Shortcut
+- HUD zeigt diskreten Aufnahme-/Transkriptionsstatus
+- Ergebnis landet ohne Reibung im aktuellen Eingabefeld (Clipboard/Paste-Flow)
+
+#### UI Journey B: Meeting-Transkription mit Tray-gesteuertem Dual-Recording
+
+- Start/Stop über Tray/HUD statt Terminal
+- Mic + System-Audio als UI-gesteuerter Flow (Tier 3+)
+- Ergebnisübergabe in Doku- und Ticket-Workflows
+
+#### UI Journey C: First-Run Onboarding in der App
+
+- Geführter Setup-Flow für API-Key und Berechtigungen
+- In-App Test-Recording zur sofortigen Verifikation
+- Übergang in den Hintergrundbetrieb über System Tray
 
 ---
 

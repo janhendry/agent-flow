@@ -1192,3 +1192,409 @@ Das Profil-Wechsel-Overlay folgt dem **Spotlight-Paradigma** — identische visu
 #### Animationen
 
 Identisch zu History Overlay: Fade-in + Scale 0.96→1.0 (150ms) · Fade-out (100ms). `prefers-reduced-motion`: nur Fade.
+
+## CLI Design Erweiterung (Tier 1 / Tier 2)
+
+Diese Ergänzung konkretisiert zwei zusätzliche UX-Designs auf Basis der PRD-Strategie:
+
+1. **Unix-Pattern CLI (non-interactive, skriptbar)**
+2. **Interactive CLI (POC-ähnlich, menügeführt)**
+
+Beide Interfaces nutzen identische Core-Use-Cases und bleiben funktional konsistent.
+
+### Design A — Unix-Pattern CLI
+
+#### Zielbild
+
+- Deterministisch, automation-first, pipeline-fähig
+- Kein interaktiver Prompt in non-interactive Commands
+- Stabiler Contract über Parameter, Exit-Codes, stdout/stderr
+
+#### Command-Pattern
+
+```bash
+whisper-flow <resource> <action> [flags]
+```
+
+**Beispiele (MVP):**
+
+```bash
+whisper-flow record start --profile standard
+whisper-flow record stop --out transcript
+whisper-flow transcribe run --input ./audio/session.wav --clipboard
+whisper-flow setup key set --from-env OPENAI_API_KEY
+whisper-flow diagnose run --format json
+```
+
+#### UX-Prinzipien (Unix)
+
+- **Stdout nur Ergebnisdaten** (Text oder JSON)
+- **Stderr nur Fehler/Diagnose**
+- **Exit-Codes stabil und dokumentiert**
+- Flags statt Rückfragen (kein hidden Prompt)
+- `--format json` für maschinenlesbare Verarbeitung
+
+#### Output-Spezifikation
+
+| Kontext            | stdout                              | stderr                                  | Exit Code |
+| ------------------ | ----------------------------------- | --------------------------------------- | --------- |
+| Erfolg (Text)      | Transkript als Plain Text           | leer                                    | `0`       |
+| Erfolg (JSON)      | Objekt mit `status`, `text`, `meta` | leer                                    | `0`       |
+| Validierungsfehler | leer                                | handlungsorientierte Meldung            | `2`       |
+| API-Fehler         | leer                                | kurze Fehlerdiagnose                    | `10`      |
+| Runtime/IO-Fehler  | leer                                | technische Kurzursache + nächste Aktion | `20`      |
+
+#### Beispiel-Flow: Diktat in Git-Commit
+
+```bash
+whisper-flow transcribe run --record --clipboard --format text
+git commit -m "$(pbpaste)"
+```
+
+**UX-Wert:** schnellster Weg ist gleichzeitig der qualitativ beste Weg; kein Kontextwechsel, keine UI-Abhängigkeit.
+
+---
+
+### Design B — Interactive CLI (POC-Stil)
+
+#### Zielbild
+
+- Menügeführte Bedienung mit klarer Keyboard-Navigation
+- Guided Flows für Setup, Aufnahme, Transkription, Profile
+- Gleiches Domänenverhalten wie Unix-CLI, aber höhere Lernfreundlichkeit
+
+#### Hauptnavigation
+
+```text
+WhisperFlow
+├─ Record & Transcribe
+├─ Profiles
+├─ History
+├─ Setup & Diagnostics
+└─ Exit
+```
+
+#### Interaktionsmuster
+
+| Zustand      | Darstellung                             | Eingabe                             | Ergebnis                 |
+| ------------ | --------------------------------------- | ----------------------------------- | ------------------------ |
+| Idle         | Hauptmenü mit Fokuszeile                | `↑/↓`, `Enter`                      | Navigation               |
+| Recording    | Live-Status mit Timer/Pegeltext         | `Enter` (Stop), `Esc` (Cancel)      | Übergang zu Transcribing |
+| Transcribing | Progress-Status mit Schritttext         | keine Pflicht-Eingabe               | Success oder Error       |
+| Success      | Kurzfeedback + nächste Aktionen         | `c` Clipboard, `s` Save, `q` zurück | Abschluss                |
+| Error        | Klare Fehlermeldung + Aktionsempfehlung | `r` retry, `d` details, `q` zurück  | Recovery                 |
+
+#### UX-Prinzipien (Interactive)
+
+- **Ein Screen = eine primäre Entscheidung**
+- **Alle Flows vollständig tastaturbedienbar**
+- **Error-Recovery direkt im Kontext** (Retry statt Dead-End)
+- **POC-Kompatibilität**: bekannte Navigationslogik bleibt erhalten
+
+#### Beispiel-Flow: Erstes Setup
+
+1. `Setup & Diagnostics` öffnen
+2. API-Key setzen (validieren)
+3. Dependency-Check ausführen
+4. Test-Recording starten
+5. Erfolgsbestätigung + Return to Main Menu
+
+**UX-Wert:** geringere Einstiegshürde für neue Nutzer, ohne vom Core-Verhalten abzuweichen.
+
+---
+
+### Paritätsregeln zwischen beiden CLI-Designs
+
+- Gleiche Use-Cases und Ergebnissemantik in beiden Interfaces
+- Gleiche Fehlertypen, gleiche Exit-Code-Mapping-Logik
+- Gleiche Profil-/Konfigurationsdaten, keine Adapter-Sonderlogik
+- Interactive CLI darf führen, aber nie fachlich anders entscheiden als Unix-CLI
+
+### Empfehlung
+
+Für MVP und Tier 2 beide Designs parallel führen:
+
+- **Unix-CLI** als primäre Automations- und Power-User-Schnittstelle
+- **Interactive CLI** als geführter Einstiegs- und Diagnosemodus
+
+Damit bleibt die PRD-Leitlinie „Dual CLI auf gemeinsamem Core“ vollständig umgesetzt.
+
+## ASCII-Wireframes — CLI
+
+### A) Unix-Pattern CLI (non-interactive)
+
+#### A1 — Erfolgsfall (`--format text`)
+
+```text
+$ whisper-flow transcribe run --record --clipboard --format text
+
+[info] recording started
+[info] recording stopped (duration: 00:08)
+[info] transcribing...
+
+Fix null pointer exception in user authentication when token expires during active session.
+
+[info] copied to clipboard
+$ echo $?
+0
+```
+
+#### A2 — Erfolgsfall (`--format json`)
+
+```text
+$ whisper-flow transcribe run --input ./audio/session.wav --format json
+
+{
+  "status": "ok",
+  "text": "Discussed architecture decisions for adapter parity...",
+  "meta": {
+    "duration_ms": 48213,
+    "profile": "meeting-notes",
+    "source": "file"
+  }
+}
+
+$ echo $?
+0
+```
+
+#### A3 — Fehlerfall (Validation/API)
+
+```text
+$ whisper-flow transcribe run --input ./audio/missing.wav --format json
+
+stderr:
+  [error] input file not found: ./audio/missing.wav
+  [hint] verify path or run: whisper-flow record start
+
+$ echo $?
+2
+```
+
+```text
+$ whisper-flow transcribe run --record --api-key invalid
+
+stderr:
+  [error] transcription failed: unauthorized
+  [hint] run: whisper-flow setup key set --from-env OPENAI_API_KEY
+
+$ echo $?
+10
+```
+
+---
+
+### B) Interactive CLI (POC-ähnlich)
+
+#### B1 — Main Menu
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ WhisperFlow CLI                                              │
+│ Core-first Voice Workflow                                    │
+├──────────────────────────────────────────────────────────────┤
+│ ❯ Record & Transcribe                                        │
+│   Profiles                                                    │
+│   History                                                     │
+│   Setup & Diagnostics                                         │
+│   Exit                                                        │
+├──────────────────────────────────────────────────────────────┤
+│ ↑/↓ Navigate   Enter Select   q Quit                         │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### B2 — Recording Screen
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Record & Transcribe                                          │
+├──────────────────────────────────────────────────────────────┤
+│ Status: RECORDING                                            │
+│ Time:   00:00:08                                              │
+│ Input:  Microphone (Profile: standard)                       │
+│                                                              │
+│ Level:  ▁▂▃▅▆▅▃▂▁  ▁▁▂▄▆▇▅▃▂                                 │
+│                                                              │
+│ [Enter] Stop Recording    [Esc] Cancel                      │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### B3 — Transcribing Screen
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Record & Transcribe                                          │
+├──────────────────────────────────────────────────────────────┤
+│ Status: TRANSCRIBING                                         │
+│ Step:   Uploading audio                                      │
+│                                                              │
+│ Progress: [███████████░░░░░░░░░░] 52%                        │
+│                                                              │
+│ Please wait...                                                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### B4 — Success Screen
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Transcription Complete ✅                                     │
+├──────────────────────────────────────────────────────────────┤
+│ Preview:                                                      │
+│ "Fix null pointer exception in user authentication..."       │
+│                                                              │
+│ Actions:                                                      │
+│   [c] Copy to clipboard                                       │
+│   [s] Save to file                                            │
+│   [q] Back to main menu                                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### B5 — Error Recovery Screen
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Transcription Failed                                          │
+├──────────────────────────────────────────────────────────────┤
+│ Reason: API unauthorized (401)                               │
+│                                                              │
+│ Next steps:                                                   │
+│  1) Verify API key                                            │
+│  2) Run diagnostics                                            │
+│                                                              │
+│ Actions:                                                      │
+│   [r] Retry      [d] Details      [k] Setup Key      [q] Back│
+└──────────────────────────────────────────────────────────────┘
+```
+
+### C) Tastatur-Map (Interactive CLI)
+
+| Taste   | Global                      | Kontext                |
+| ------- | --------------------------- | ---------------------- |
+| `↑/↓`   | Navigation in Menüs         | Main Menu, Listen      |
+| `Enter` | Primäraktion                | Select, Stop Recording |
+| `Esc`   | Abbrechen / Zurück          | Recording, Untermenüs  |
+| `q`     | Zurück zum Hauptmenü / Exit | Alle Screens           |
+| `r`     | Retry                       | Error-Screen           |
+| `d`     | Detailansicht               | Error-Screen           |
+| `c`     | In Clipboard kopieren       | Success-Screen         |
+| `s`     | In Datei speichern          | Success-Screen         |
+
+Diese Wireframes dienen als Referenz für Ink-Komponenten (Interactive CLI) und Contract-Tests der Unix-CLI-Ausgaben.
+
+## Ink-Screen-Struktur (Komponentenliste + State-Machine)
+
+### 1) Komponentenliste (Interactive CLI)
+
+#### 1.1 App-Shell
+
+| Komponente     | Verantwortung                            | Inputs (Props/Store)            | Outputs (Events)   |
+| -------------- | ---------------------------------------- | ------------------------------- | ------------------ |
+| `CliApp`       | Root, Router, globale Keybindings        | `appState`, `config`, `profile` | `NAVIGATE`, `QUIT` |
+| `ScreenFrame`  | Einheitlicher Frame (Header/Footer/Help) | `title`, `hints`, `status`      | —                  |
+| `GlobalKeymap` | Shortcut-Mapping pro Screen              | `currentScreen`                 | `KEY_ACTION`       |
+
+#### 1.2 Navigations- und Domain-Screens
+
+| Komponente               | Verantwortung                    | Inputs (Props/Store)         | Outputs (Events)                                        |
+| ------------------------ | -------------------------------- | ---------------------------- | ------------------------------------------------------- |
+| `MainMenuScreen`         | Hauptmenü-Auswahl                | `menuItems`, `selectedIndex` | `SELECT_MENU`, `MOVE_UP`, `MOVE_DOWN`                   |
+| `RecordTranscribeScreen` | Start/Stop und Flow-Einstieg     | `profile`, `mode`            | `START_RECORDING`, `STOP_RECORDING`, `CANCEL_RECORDING` |
+| `ProfilesScreen`         | Profilauswahl und Aktivierung    | `profiles`, `activeProfile`  | `SELECT_PROFILE`, `ACTIVATE_PROFILE`                    |
+| `HistoryScreen`          | Verlauf anzeigen, Eintrag wählen | `historyItems`, `query`      | `FILTER_HISTORY`, `OPEN_HISTORY_ITEM`                   |
+| `SetupDiagnosticsScreen` | Setup, Key-Flow, Checks          | `diagnostics`, `keyStatus`   | `SET_API_KEY`, `RUN_DIAGNOSE`, `TEST_RECORDING`         |
+
+#### 1.3 Laufzeit-/Status-Screens
+
+| Komponente           | Verantwortung                    | Inputs (Props/Store)                | Outputs (Events)                                      |
+| -------------------- | -------------------------------- | ----------------------------------- | ----------------------------------------------------- |
+| `RecordingScreen`    | Live-Aufnahme mit Timer/Level    | `elapsedMs`, `audioLevel`, `source` | `STOP_RECORDING`, `CANCEL_RECORDING`                  |
+| `TranscribingScreen` | Upload/Transkription-Fortschritt | `progress`, `phase`                 | `TRANSCRIBE_DONE`, `TRANSCRIBE_FAILED`                |
+| `SuccessScreen`      | Erfolg + Folgeaktionen           | `previewText`, `outputTargets`      | `COPY`, `SAVE`, `BACK_TO_MENU`                        |
+| `ErrorScreen`        | Fehlerkontext + Recovery         | `errorCode`, `hint`, `details`      | `RETRY`, `OPEN_SETUP`, `SHOW_DETAILS`, `BACK_TO_MENU` |
+
+#### 1.4 Wiederverwendbare UI-Bausteine
+
+| Komponente       | Verantwortung                                    |
+| ---------------- | ------------------------------------------------ |
+| `HeaderBar`      | Titel, aktives Profil, Modus-Badge               |
+| `FooterHints`    | Kontextuelle Tastenhinweise                      |
+| `SelectableList` | Listen mit Fokuszeile (`↑/↓`, `Enter`)           |
+| `ProgressBar`    | Deterministischer Fortschritt für Transcribing   |
+| `AudioLevelBar`  | Text-/Blockbasierte Pegelanzeige                 |
+| `StatusLine`     | Einzeilige Runtime-Meldungen (`info/warn/error`) |
+
+### 2) State-Machine (Interactive CLI)
+
+#### 2.1 Zustände
+
+- `idle.main_menu`
+- `flow.recording`
+- `flow.transcribing`
+- `flow.success`
+- `flow.error`
+- `setup.diagnostics`
+- `profiles.manage`
+- `history.browse`
+- `app.exit`
+
+#### 2.2 Transition-Tabelle
+
+| Von                 | Event               | Nach                | Wirkung                            |
+| ------------------- | ------------------- | ------------------- | ---------------------------------- |
+| `idle.main_menu`    | `SELECT_RECORD`     | `flow.recording`    | Recorder starten, Timer reset      |
+| `idle.main_menu`    | `SELECT_SETUP`      | `setup.diagnostics` | Diagnose-Daten laden               |
+| `idle.main_menu`    | `SELECT_PROFILES`   | `profiles.manage`   | Profile laden                      |
+| `idle.main_menu`    | `SELECT_HISTORY`    | `history.browse`    | History laden                      |
+| `idle.main_menu`    | `QUIT`              | `app.exit`          | Prozess beenden                    |
+| `flow.recording`    | `STOP_RECORDING`    | `flow.transcribing` | Audio finalisieren, Upload starten |
+| `flow.recording`    | `CANCEL_RECORDING`  | `idle.main_menu`    | Aufnahme verwerfen                 |
+| `flow.transcribing` | `TRANSCRIBE_DONE`   | `flow.success`      | Ergebnis + Meta in Store setzen    |
+| `flow.transcribing` | `TRANSCRIBE_FAILED` | `flow.error`        | Fehlerobjekt + Hint setzen         |
+| `flow.success`      | `COPY`              | `flow.success`      | Clipboard schreiben                |
+| `flow.success`      | `SAVE`              | `flow.success`      | Datei schreiben                    |
+| `flow.success`      | `BACK_TO_MENU`      | `idle.main_menu`    | temporären Flow-State leeren       |
+| `flow.error`        | `RETRY`             | `flow.transcribing` | letzten Input erneut senden        |
+| `flow.error`        | `OPEN_SETUP`        | `setup.diagnostics` | API-Key/Diagnose-Flow öffnen       |
+| `flow.error`        | `BACK_TO_MENU`      | `idle.main_menu`    | Fehler-UI schließen                |
+| `setup.diagnostics` | `BACK`              | `idle.main_menu`    | zurück zum Menü                    |
+| `profiles.manage`   | `BACK`              | `idle.main_menu`    | zurück zum Menü                    |
+| `history.browse`    | `BACK`              | `idle.main_menu`    | zurück zum Menü                    |
+
+#### 2.3 State-Machine Diagramm (Mermaid)
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle_main_menu
+
+  idle_main_menu --> flow_recording: SELECT_RECORD
+  idle_main_menu --> setup_diagnostics: SELECT_SETUP
+  idle_main_menu --> profiles_manage: SELECT_PROFILES
+  idle_main_menu --> history_browse: SELECT_HISTORY
+  idle_main_menu --> app_exit: QUIT
+
+  flow_recording --> flow_transcribing: STOP_RECORDING
+  flow_recording --> idle_main_menu: CANCEL_RECORDING
+
+  flow_transcribing --> flow_success: TRANSCRIBE_DONE
+  flow_transcribing --> flow_error: TRANSCRIBE_FAILED
+
+  flow_success --> flow_success: COPY / SAVE
+  flow_success --> idle_main_menu: BACK_TO_MENU
+
+  flow_error --> flow_transcribing: RETRY
+  flow_error --> setup_diagnostics: OPEN_SETUP
+  flow_error --> idle_main_menu: BACK_TO_MENU
+
+  setup_diagnostics --> idle_main_menu: BACK
+  profiles_manage --> idle_main_menu: BACK
+  history_browse --> idle_main_menu: BACK
+```
+
+### 3) Implementierungsregeln für Ink
+
+- Ein zentraler Store (`appState`) steuert Navigation, kein Screen-lokales Routing.
+- Side Effects (Audio/API/File/Clipboard) laufen nur über Actions/Use-Cases, nie direkt in Render-Komponenten.
+- Jeder Zustand hat genau eine Primäraktion (`Enter`) und klar dokumentierte Secondary Keys.
+- Fehlerobjekte werden normalisiert (`code`, `message`, `hint`, `retryable`) für konsistente `ErrorScreen`-Darstellung.
+- `stdout`/`stderr`-Verträge bleiben für Unix-CLI unverändert; Interactive CLI nutzt dieselben Core-Events.
