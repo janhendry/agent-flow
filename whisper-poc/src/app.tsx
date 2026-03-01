@@ -19,6 +19,11 @@ import {
 import { resolveTranscribeUiCommand } from "./commands/interactive-transcribe-ui.js";
 import { toActionableTranscribeErrorHint } from "./commands/interactive-transcribe-error-hints.js";
 import { buildDiagnoseReport } from "./commands/diagnose.js";
+import {
+  buildSetupTransitionFromTranscript,
+  completeConfigRecovery,
+  type ConfigReturnTarget,
+} from "./commands/interactive-recovery-flow.js";
 import { AudioDevice, Config, RecordingMode } from "./types.js";
 import { createCliSecretStore } from "./adapters/cli/secret-store.adapter.js";
 import {
@@ -59,10 +64,6 @@ interface SharedData {
   systemDevice: AudioDevice | undefined;
   hasConfig: boolean;
 }
-
-type ConfigReturnTarget =
-  | { id: "menu" }
-  | { id: "transcript"; filePath: string; origin: "record-flow" | "filepick" };
 
 const DEFAULT_CONFIG: Config = {
   mode: "mic",
@@ -1732,12 +1733,12 @@ function App({ onRequestSetup }: AppProps) {
                 `[interactive:diagnose:error] ${error.message}\n`,
               );
             });
-          setConfigReturnTarget({
-            id: "transcript",
+          const transition = buildSetupTransitionFromTranscript({
             filePath: screen.filePath,
             origin: screen.origin,
           });
-          setScreen({ id: "config" });
+          setConfigReturnTarget(transition.configReturnTarget);
+          setScreen(transition.nextScreen);
         }}
         onDone={() => setScreen({ id: "menu" })}
       />
@@ -1750,8 +1751,9 @@ function App({ onRequestSetup }: AppProps) {
         data={sharedData}
         onDone={async (updated) => {
           await reloadData(updated);
-          setScreen(configReturnTarget);
-          setConfigReturnTarget({ id: "menu" });
+          const recovery = completeConfigRecovery(configReturnTarget);
+          setScreen(recovery.nextScreen);
+          setConfigReturnTarget(recovery.resetReturnTarget);
         }}
       />
     );

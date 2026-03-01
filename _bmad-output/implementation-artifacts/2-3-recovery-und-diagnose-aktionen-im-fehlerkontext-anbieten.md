@@ -1,6 +1,6 @@
 # Story 2.3: Recovery- und Diagnose-Aktionen im Fehlerkontext anbieten
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,7 +30,7 @@ so that ich Probleme ohne Kontextverlust beheben kann.
   - [x] Rückkehrpfad von Setup/Diagnose zurück zum Recovery-Kontext sicherstellen
 - [ ] Tests und Qualitätsgates ergänzen (AC: 1)
   - [x] Unit-Tests für State-Machine-Transitions und Recovery-Events
-  - [ ] Integrationstests für Error-Screen-Keymap und Flow-Fortsetzung
+  - [x] Integrationstests für Error-Screen-Keymap und Flow-Fortsetzung
   - [x] `npm run verify` erfolgreich
 
 ## Dev Notes
@@ -108,6 +108,7 @@ GPT-5.3-Codex
 - Diagnose-Trigger im Interactive-Kontext ergänzt: bei `k` wird vor Setup ein Diagnose-Report erzeugt und auf `stderr` ausgegeben.
 - Error-UX präzisiert: Standardanzeige zeigt kurze, handlungsorientierte Hinweise; technische Rohdetails bleiben hinter `d` (Details-Toggle).
 - Qualitätsgates erneut grün: fokussierte Tests, Gesamttestlauf und `npm run verify` erfolgreich.
+- Integrationstest ergänzt: Error-Key `k` → Setup-Transition → Rückkehr in denselben Transcript-Kontext inkl. Keymap-Fortsetzung (`r`).
 
 ### Completion Notes List
 
@@ -116,7 +117,7 @@ GPT-5.3-Codex
 - Slice A umgesetzt: technische UX-Foundation (State-Machine + Keymap) steht als Integrationsbasis für den neuen Interactive-Router.
 - Slice B in Arbeit: Recording UX entspricht jetzt der gewünschten Bedienlogik und zeigt fortlaufenden Pegel an.
 - Slice C teilweise geliefert: Keymap und Recovery-Aktionen in der UI integriert, offene Restarbeiten liegen bei Diagnose-Rückkehrpfad und ergänzenden Integrationstests.
-- Story ist bereit für Review; verbleibender Fokus im Review: explizite Integrationstests für Error-Screen-Keymap und Flow-Fortsetzung.
+- Story abgeschlossen: Review-Finding zu fehlendem Integrationstest behoben, Tests/Verify weiterhin grün.
 
 ### File List
 
@@ -131,6 +132,8 @@ GPT-5.3-Codex
 - whisper-poc/src/commands/interactive-transcribe-ui.test.ts
 - whisper-poc/src/commands/interactive-transcribe-error-hints.ts
 - whisper-poc/src/commands/interactive-transcribe-error-hints.test.ts
+- whisper-poc/src/commands/interactive-recovery-flow.ts
+- whisper-poc/src/commands/interactive-recovery-flow.integration.test.ts
 
 ### Change Log
 
@@ -142,12 +145,13 @@ GPT-5.3-Codex
 - 2026-03-01: Diagnose-Trigger im Interactive-Kontext verdrahtet (`k` erzeugt Diagnose-Report vor Setup), Verify weiterhin grün.
 - 2026-03-01: Handlungsorientierte Error-Hinweise ergänzt (Default kurz, Raw-Details nur via `d`), Verify weiterhin grün.
 - 2026-03-01: Story auf `review` gesetzt und Review-Lauf gestartet.
+- 2026-03-01: Review-Finding geschlossen durch Integrationstest für `k`→Setup→Recovery-Fortsetzung; Story auf `done` gesetzt.
 
 ## Senior Developer Review (AI)
 
 ### Review Outcome
 
-Changes Requested
+Approve
 
 ### Review Date
 
@@ -161,8 +165,8 @@ Changes Requested
 
 ### Findings
 
-- [ ] [MEDIUM] Es fehlt ein expliziter Integrationstest, der den End-to-End-Pfad im Error-Kontext (`k` → Setup → Rückkehr in Recovery-Kontext) inkl. Keymap-Fortsetzung absichert.
+- [x] [MEDIUM] Es fehlt ein expliziter Integrationstest, der den End-to-End-Pfad im Error-Kontext (`k` → Setup → Rückkehr in Recovery-Kontext) inkl. Keymap-Fortsetzung absichert.
 
 ### Action Items
 
-- [ ] Integrationstest ergänzen, der Error-Keymap und Flow-Fortsetzung nach Setup/Diagnose im Interactive-Kontext validiert.
+- [x] Integrationstest ergänzen, der Error-Keymap und Flow-Fortsetzung nach Setup/Diagnose im Interactive-Kontext validiert.
