@@ -37,6 +37,7 @@ program
 	.option("-m, --mode <mode>", "Aufnahme-Modus: mic | system | both")
 	.option("--mic <index>", "avfoundation Mikrofon-Index")
 	.option("--system <index>", "System-Audio-Gerät-Index")
+	.option("-d, --duration <sekunden>", "Aufnahmedauer in Sekunden (non-interactive)")
 	.option("-o, --output <datei>", "Ausgabedatei-Pfad")
 	.action(async (options) => {
 		await recordCommand(options);
@@ -48,6 +49,7 @@ program
 	.description("Audio-Datei transkribieren (ohne TUI)")
 	.option("-l, --language <lang>", "Sprache (ISO 639-1)", "de")
 	.option("-o, --output <datei>", "Transkript-Ausgabedatei (.txt)")
+	.option("--stdout", "Transkript auf stdout ausgeben (pipeline-fähig)")
 	.option("-k, --api-key <key>", "OpenAI API-Key")
 	.option("-b, --base-url <url>", "OpenAI-kompatible Base URL")
 	.action(async (file: string, options) => {

@@ -8,6 +8,7 @@ import os from "os";
 import path from "path";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AudioDevice, Config, RecordingMode } from "./types.js";
+import { createCliSecretStore } from "./adapters/cli/secret-store.adapter.js";
 import {
   buildFfmpegArgs,
   checkFfmpeg,
@@ -53,6 +54,8 @@ const DEFAULT_CONFIG: Config = {
   micName: "Standard",
   outputDir: path.join(os.homedir(), "Desktop", "whisper-recordings"),
 };
+
+const cliSecretStore = createCliSecretStore();
 
 // ── Hilfsfunktionen ────────────────────────────────────────────────────────
 
@@ -819,7 +822,10 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const apiKey = data.config.apiKey ?? process.env["OPENAI_API_KEY"];
+    const apiKey =
+      cliSecretStore.getApiKey() ??
+      data.config.apiKey ??
+      process.env["OPENAI_API_KEY"];
     if (!apiKey) {
       setErrorMsg(
         "Kein OpenAI API-Key. Einstellungen öffnen oder OPENAI_API_KEY setzen.",
@@ -944,7 +950,9 @@ interface ConfigScreenProps {
 function ConfigScreen({ data, onDone }: ConfigScreenProps) {
   const [step, setStep] = useState<ConfigStep>("mode");
   const [draft, setDraft] = useState<Config>({ ...data.config });
-  const [apiKey, setApiKey] = useState(data.config.apiKey ?? "");
+  const [apiKey, setApiKey] = useState(
+    cliSecretStore.getApiKey() ?? data.config.apiKey ?? "",
+  );
   const [baseUrl, setBaseUrl] = useState(data.config.baseUrl ?? "");
   const [outputDir, setOutputDir] = useState(data.config.outputDir);
   const [devices, setDevices] = useState<AudioDevice[]>([]);
@@ -972,9 +980,15 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
   useEffect(() => {
     if (step === "saving" && !savedRef.current) {
       savedRef.current = true;
+      const trimmedApiKey = apiKey.trim();
+      if (trimmedApiKey) {
+        cliSecretStore.setApiKey(trimmedApiKey);
+      } else {
+        cliSecretStore.clearApiKey();
+      }
       const final: Config = {
         ...draft,
-        apiKey: apiKey.trim() || undefined,
+        apiKey: undefined,
         baseUrl: baseUrl.trim() || undefined,
         outputDir: outputDir.trim() || draft.outputDir,
       };
@@ -1201,6 +1215,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
   // ── Schritt 4: API-Key
   if (step === "apikey") {
     const next = () => setStep("baseurl");
+    const currentApiKey = cliSecretStore.getApiKey() ?? data.config.apiKey;
     return (
       <Box padding={1} flexDirection="column">
         <Box
@@ -1217,9 +1232,7 @@ function ConfigScreen({ data, onDone }: ConfigScreenProps) {
           <Text> </Text>
           <Text color="gray">
             Aktuell:{" "}
-            {data.config.apiKey
-              ? "••••" + data.config.apiKey.slice(-4)
-              : "nicht gesetzt"}
+            {currentApiKey ? "••••" + currentApiKey.slice(-4) : "nicht gesetzt"}
           </Text>
           <Text> </Text>
           <Text>

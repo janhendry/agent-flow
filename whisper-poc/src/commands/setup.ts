@@ -14,6 +14,7 @@ import {
 	loadConfig,
 	saveConfig,
 } from "../utils/config.js";
+import { createCliSecretStore } from "../adapters/cli/secret-store.adapter.js";
 
 const IS_WINDOWS = process.platform === "win32";
 
@@ -76,6 +77,12 @@ export async function setupCommand(): Promise<void> {
 				micName: "Standard",
 				outputDir: DEFAULT_OUTPUT_DIR,
 			};
+		const secretStore = createCliSecretStore();
+		if (!secretStore.getApiKey() && existingConfig.apiKey?.trim()) {
+			secretStore.setApiKey(existingConfig.apiKey);
+			existingConfig.apiKey = undefined;
+			saveConfig(existingConfig);
+		}
 
 		if (configExists()) {
 			console.log(chalk.gray("Vorhandene Konfiguration gefunden."));
@@ -148,7 +155,7 @@ export async function setupCommand(): Promise<void> {
 				{
 					name: menuRow(
 						"API Key",
-						draftConfig.apiKey ? "gesetzt" : "nicht gesetzt",
+						secretStore.getApiKey() ? "gesetzt" : "nicht gesetzt",
 					),
 					value: "apiKey",
 				},
@@ -259,6 +266,7 @@ export async function setupCommand(): Promise<void> {
 				});
 
 				if (apiAction === "clear") {
+					secretStore.clearApiKey();
 					draftConfig.apiKey = undefined;
 					saveConfig(draftConfig);
 					console.log(chalk.green("✓ API Key gelöscht"));
@@ -273,7 +281,8 @@ export async function setupCommand(): Promise<void> {
 				});
 
 				if (apiKey.trim().length > 0) {
-					draftConfig.apiKey = apiKey.trim();
+					secretStore.setApiKey(apiKey.trim());
+					draftConfig.apiKey = undefined;
 					saveConfig(draftConfig);
 					console.log(chalk.green("✓ API Key gespeichert"));
 				}
@@ -333,7 +342,7 @@ export async function setupCommand(): Promise<void> {
 		console.log(chalk.white("  Path:       ") + chalk.cyan(draftConfig.outputDir));
 		console.log(
 			chalk.white("  API Key:    ") +
-			chalk.cyan(draftConfig.apiKey ? "gesetzt" : "nicht gesetzt"),
+			chalk.cyan(secretStore.getApiKey() ? "gesetzt" : "nicht gesetzt"),
 		);
 		console.log(
 			chalk.white("  Base URL:   ") +

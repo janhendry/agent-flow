@@ -8,9 +8,14 @@
 		"whisper-poc": "./dist/cli.js"
 	},
 	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint:types": "tsc --noEmit",
+		"lint": "npm run lint:types",
+		"test": "npm run build && node --test dist/**/*.test.js",
 		"build": "tsc",
 		"dev": "ts-node src/cli.ts",
-		"start": "node dist/cli.js"
+		"start": "node dist/cli.js",
+		"verify": "npm run typecheck && npm run build"
 	},
 	"dependencies": {
 		"@types/react": "^18.3.28",

@@ -21,6 +21,7 @@ interface RecordOptions {
 	output?: string;
 	mic?: string;
 	system?: string;
+	duration?: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -29,6 +30,108 @@ const DEFAULT_CONFIG: Config = {
 	micName: "Standard",
 	outputDir: path.join(os.homedir(), "Desktop", "whisper-recordings"),
 };
+
+interface RecordExecutionOptions {
+	mode: RecordingMode;
+	micIndex: number;
+	systemIndex?: number;
+	outputFile?: string;
+	outputDir: string;
+	durationSec?: number;
+}
+
+function emitCliError(code: string, message: string): never {
+	console.error(
+		JSON.stringify({
+			command: "record",
+			status: "error",
+			code,
+			message,
+		}),
+	);
+	process.exit(1);
+}
+
+function parseOptionalInteger(
+	value: string | undefined,
+	label: string,
+): number | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+	const parsed = Number.parseInt(value, 10);
+	if (!Number.isInteger(parsed)) {
+		throw new Error(`${label} muss eine ganze Zahl sein`);
+	}
+	return parsed;
+}
+
+function parseRequiredInteger(value: string | undefined, label: string): number {
+	const parsed = parseOptionalInteger(value, label);
+	if (parsed === undefined) {
+		throw new Error(`${label} muss eine ganze Zahl sein`);
+	}
+	return parsed;
+}
+
+function resolveMode(modeValue: string): RecordingMode {
+	if (modeValue === "mic" || modeValue === "system" || modeValue === "both") {
+		return modeValue;
+	}
+	throw new Error("Ungültiger Modus. Erlaubt: mic | system | both");
+}
+
+export function resolveRecordExecutionOptions(
+	options: RecordOptions,
+	config: Config,
+	env: NodeJS.ProcessEnv = process.env,
+): RecordExecutionOptions {
+	const mode = resolveMode(options.mode ?? config.mode ?? env["WHISPER_POC_MODE"] ?? "mic");
+	const micIndex =
+		options.mic !== undefined
+			? parseRequiredInteger(options.mic, "Mikrofonindex")
+			: (config.micIndex ?? parseRequiredInteger(env["WHISPER_POC_MIC"], "Mikrofonindex"));
+	const systemIndex =
+		options.system !== undefined
+			? parseOptionalInteger(options.system, "System-Audio-Index")
+			: (config.systemIndex ?? parseOptionalInteger(env["WHISPER_POC_SYSTEM"], "System-Audio-Index"));
+
+	const durationSec =
+		options.duration !== undefined
+			? parseRequiredInteger(options.duration, "Aufnahmedauer")
+			: parseOptionalInteger(env["WHISPER_POC_RECORD_DURATION"], "Aufnahmedauer");
+	if (durationSec !== undefined && durationSec <= 0) {
+		throw new Error("Aufnahmedauer muss größer als 0 sein");
+	}
+
+	const outputDir =
+		config.outputDir ?? env["WHISPER_POC_OUTPUT_DIR"] ?? DEFAULT_CONFIG.outputDir;
+	const outputFile = options.output;
+
+	return {
+		mode,
+		micIndex,
+		systemIndex,
+		outputFile,
+		outputDir,
+		durationSec,
+	};
+}
+
+export function resolveRecordOutputFile(
+	executionOptions: RecordExecutionOptions,
+	isDeterministicMode: boolean,
+	now: Date = new Date(),
+): string {
+	if (executionOptions.outputFile) {
+		return executionOptions.outputFile;
+	}
+	if (isDeterministicMode) {
+		return path.join(executionOptions.outputDir, "recording.wav");
+	}
+	const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+	return path.join(executionOptions.outputDir, `recording-${timestamp}.wav`);
+}
 
 // ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -161,48 +264,158 @@ async function runRecordingSession(
 	});
 }
 
+async function runDeterministicRecordingSession(
+	mode: RecordingMode,
+	micDevice: AudioDevice,
+	systemDevice: AudioDevice | undefined,
+	outputFile: string,
+	durationSec: number,
+): Promise<{ success: boolean; durationSec: number }> {
+	let ffmpegArgs: string[];
+	try {
+		ffmpegArgs = buildFfmpegArgs(mode, micDevice, systemDevice, outputFile);
+	} catch (err) {
+		emitCliError("ffmpeg-args", (err as Error).message);
+	}
+
+	return new Promise((resolve) => {
+		const proc = startRecording(ffmpegArgs);
+		const startTime = Date.now();
+		const stderrLines: string[] = [];
+
+		proc.stderr?.on("data", (chunk: Buffer) => stderrLines.push(chunk.toString()));
+
+		setTimeout(() => {
+			proc.stdin?.write("q");
+		}, durationSec * 1000);
+
+		proc.on("close", () => {
+			const ok = fs.existsSync(outputFile) && fs.statSync(outputFile).size > 0;
+			if (!ok && stderrLines.length > 0) {
+				emitCliError("ffmpeg-record", stderrLines.slice(-10).join(" ").trim());
+			}
+			resolve({
+				success: ok,
+				durationSec: Math.max(0, (Date.now() - startTime) / 1000),
+			});
+		});
+	});
+}
+
 // ── Haupt-Command (interaktive Schleife) ──────────────────────────────────────
 
 export async function recordCommand(options: RecordOptions): Promise<void> {
 	const hasFfmpeg = await checkFfmpeg();
 	if (!hasFfmpeg) {
-		const { installHint } = getPlatformInfo();
-		console.error(
-			chalk.red(`❌  ffmpeg nicht gefunden. Installiere: ${installHint}`),
+		emitCliError(
+			"ffmpeg-missing",
+			`ffmpeg nicht gefunden. Installiere: ${getPlatformInfo().installHint}`,
 		);
-		process.exit(1);
 	}
 
 	const config = configExists() ? loadConfig() : DEFAULT_CONFIG;
+	let executionOptions: RecordExecutionOptions;
+	try {
+		executionOptions = resolveRecordExecutionOptions(options, config);
+	} catch (err) {
+		emitCliError("invalid-options", (err as Error).message);
+	}
+
+	const isDeterministicMode =
+		executionOptions.durationSec !== undefined || !process.stdout.isTTY;
+
 	if (!configExists()) {
-		console.log(
-			chalk.yellow(
-				"⚠  Kein Setup – Standardwerte. Tipp: `whisper-poc setup`\n",
-			),
-		);
+		if (isDeterministicMode) {
+			console.error(
+				JSON.stringify({
+					command: "record",
+					status: "warning",
+					message: "Kein Setup gefunden, Standardwerte werden verwendet",
+				}),
+			);
+		} else {
+			console.log(
+				chalk.yellow(
+					"⚠  Kein Setup – Standardwerte. Tipp: `whisper-poc setup`\n",
+				),
+			);
+		}
 	}
 
 	const devices = await listAudioDevices();
 	const autoSystemDevice = findSystemAudioDevice(devices);
+
+	const micDevice = devices.find(
+		(d) => d.index === executionOptions.micIndex,
+	);
+	if (!micDevice) {
+		emitCliError(
+			"mic-device-missing",
+			`Kein Mikrofon-Gerät mit Index ${executionOptions.micIndex} gefunden`,
+		);
+	}
+
+	let systemDevice: AudioDevice | undefined;
+	if (executionOptions.systemIndex !== undefined) {
+		systemDevice = devices.find((d) => d.index === executionOptions.systemIndex);
+		if (!systemDevice) {
+			emitCliError(
+				"system-device-missing",
+				`Kein System-Audio-Gerät mit Index ${executionOptions.systemIndex} gefunden`,
+			);
+		}
+	} else {
+		systemDevice = autoSystemDevice;
+	}
+
+	if ((executionOptions.mode === "system" || executionOptions.mode === "both") && !systemDevice) {
+		emitCliError(
+			"system-audio-missing",
+			"Kein System-Audio-Gerät gefunden. Installiere BlackHole (macOS) oder VB-Cable (Windows)",
+		);
+	}
+
+	const resolvedOutputFile = resolveRecordOutputFile(
+		executionOptions,
+		isDeterministicMode,
+	);
+	const outputDir = path.dirname(resolvedOutputFile);
+	if (!fs.existsSync(outputDir)) {
+		fs.mkdirSync(outputDir, { recursive: true });
+	}
+
+	if (isDeterministicMode) {
+		const durationSec = executionOptions.durationSec ?? 5;
+		const recording = await runDeterministicRecordingSession(
+			executionOptions.mode,
+			micDevice,
+			systemDevice,
+			resolvedOutputFile,
+			durationSec,
+		);
+
+		if (!recording.success) {
+			emitCliError("recording-failed", "Aufnahme fehlgeschlagen");
+		}
+
+		const stats = fs.statSync(resolvedOutputFile);
+		console.log(
+			JSON.stringify({
+				command: "record",
+				status: "ok",
+				mode: executionOptions.mode,
+				output: path.resolve(resolvedOutputFile),
+				durationSec: Number(recording.durationSec.toFixed(2)),
+				sizeBytes: stats.size,
+			}),
+		);
+		return;
+	}
+
 	let lastFile: string | null = null;
 
 	while (true) {
-		const mode: RecordingMode = (options.mode as RecordingMode) ?? config.mode;
-		const micIndex =
-			options.mic !== undefined ? parseInt(options.mic, 10) : config.micIndex;
-		const micDevice: AudioDevice = devices.find(
-			(d) => d.index === micIndex,
-		) ?? { index: config.micIndex, name: config.micName };
-
-		const systemIndex =
-			options.system !== undefined
-				? parseInt(options.system, 10)
-				: config.systemIndex;
-		const configuredSystemDevice =
-			systemIndex !== undefined
-				? devices.find((d) => d.index === systemIndex)
-				: undefined;
-		const systemDevice = configuredSystemDevice ?? autoSystemDevice;
+		const mode: RecordingMode = executionOptions.mode;
 
 		if ((mode === "system" || mode === "both") && !systemDevice) {
 			console.error(
@@ -216,13 +429,11 @@ export async function recordCommand(options: RecordOptions): Promise<void> {
 		}
 
 		// Ausgabe-Dateiname
-		const timestamp = new Date()
-			.toISOString()
-			.replace(/[:.]/g, "-")
-			.slice(0, 19);
-		const outputFile =
-			options.output ??
-			path.join(config.outputDir, `recording-${timestamp}.wav`);
+		const outputFile = resolveRecordOutputFile(
+			executionOptions,
+			false,
+			new Date(),
+		);
 		const outputDir = path.dirname(outputFile);
 		if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 

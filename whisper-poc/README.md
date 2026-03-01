@@ -51,6 +51,44 @@ npm run build
 npm link          # macht `whisper-poc` global verfügbar
 ```
 
+### Reproduzierbare Initialisierung (Story 1.1 Baseline)
+
+```bash
+# 1) Repository-abhängigkeiten installieren
+npm install
+
+# 2) Optional: lokale Umgebungswerte vorbereiten
+# macOS/Linux:
+cp .env.example .env.local
+# Windows (PowerShell):
+Copy-Item .env.example .env.local
+
+# 3) Qualitätsgates (Typecheck + Build)
+npm run verify
+```
+
+Erwartetes Ergebnis:
+
+- `npm run typecheck` läuft ohne strukturelle TS-Fehler
+- `npm run build` erzeugt lauffähige Artefakte in `dist/`
+- Baseline ist reproduzierbar für lokale Entwicklung und CI
+
+## Baseline-Skripte
+
+| Skript               | Zweck                                             |
+| -------------------- | ------------------------------------------------- |
+| `npm run typecheck`  | TypeScript-Prüfung ohne Emission                  |
+| `npm run lint:types` | Typbasierter Lint/Strictness-Check                |
+| `npm run lint`       | Kompatibilitäts-Alias auf `lint:types`            |
+| `npm run build`      | Compile nach `dist/`                              |
+| `npm run verify`     | Kombinierter Foundation-Check (`typecheck+build`) |
+
+## Foundation-Details
+
+Die vollständigen Foundation- und Security-Leitplanken stehen zentral in:
+
+- `docs/INITIALIZATION.md`
+
 ---
 
 ## Commands
