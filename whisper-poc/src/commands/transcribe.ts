@@ -5,7 +5,11 @@ import ora from "ora";
 import path from "node:path";
 import { configExists, loadConfig } from "../utils/config.js";
 import { createCliSecretStore } from "../adapters/cli/secret-store.adapter.js";
-import { transcribeFile } from "../utils/whisper.js";
+import {
+	type CliErrorCode,
+	emitCliErrorAndExit,
+} from "../utils/cli-error-contract.js";
+import { transcribeFile, WhisperError } from "../utils/whisper.js";
 
 interface TranscribeOptions {
 	language?: string;
@@ -20,16 +24,6 @@ interface ResolvedTranscribeSettings {
 	baseUrl?: string;
 	language: string;
 	writeToStdout: boolean;
-}
-
-interface TranscribeSuccessMeta {
-	command: "transcribe";
-	status: "ok";
-	file: string;
-	output: string;
-	sizeKb: number;
-	language: string;
-	clipboard: "ok";
 }
 
 interface TranscribeWarningMeta {
@@ -133,16 +127,20 @@ export function resolveTranscribeSettings(
 	};
 }
 
-function emitTranscribeError(code: string, message: string): never {
-	console.error(
-		JSON.stringify({
-			command: "transcribe",
-			status: "error",
-			code,
-			message,
-		}),
-	);
-	process.exit(1);
+function emitTranscribeError(code: CliErrorCode, message: string): never {
+	emitCliErrorAndExit("transcribe", code, message);
+}
+
+export function resolveTranscriptionFailureCode(error: Error): CliErrorCode {
+	if (error instanceof WhisperError) {
+		if (error.kind === "runtime") {
+			return "runtime-transcription-failed";
+		}
+
+		return "transcription-failed";
+	}
+
+	return "runtime-transcription-failed";
 }
 
 export async function transcribeCommand(
@@ -195,7 +193,10 @@ export async function transcribeCommand(
 		spinner?.succeed("Transkription erhalten");
 	} catch (err) {
 		spinner?.fail("Transkription fehlgeschlagen");
-		emitTranscribeError("transcription-failed", (err as Error).message);
+		emitTranscribeError(
+			resolveTranscriptionFailureCode(err as Error),
+			(err as Error).message,
+		);
 	}
 
 	// Optional: in Datei speichern

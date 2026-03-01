@@ -14,6 +14,10 @@ import {
 	startRecording,
 } from "../utils/audio.js";
 import { configExists, loadConfig } from "../utils/config.js";
+import {
+	type CliErrorCode,
+	emitCliErrorAndExit,
+} from "../utils/cli-error-contract.js";
 import { transcribeCommand } from "./transcribe.js";
 
 interface RecordOptions {
@@ -40,16 +44,8 @@ interface RecordExecutionOptions {
 	durationSec?: number;
 }
 
-function emitCliError(code: string, message: string): never {
-	console.error(
-		JSON.stringify({
-			command: "record",
-			status: "error",
-			code,
-			message,
-		}),
-	);
-	process.exit(1);
+function emitCliError(code: CliErrorCode, message: string): never {
+	emitCliErrorAndExit("record", code, message);
 }
 
 function parseOptionalInteger(

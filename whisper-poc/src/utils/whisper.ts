@@ -1,9 +1,21 @@
-import fs from "fs";
-import os from "os";
-import path from "path";
-import { spawn } from "child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawn } from "node:child_process";
 
 const BYPASS_EXTENSIONS = new Set([".webm"]);
+
+export type WhisperFailureKind = "runtime" | "api";
+
+export class WhisperError extends Error {
+	readonly kind: WhisperFailureKind;
+
+	constructor(kind: WhisperFailureKind, message: string) {
+		super(message);
+		this.name = "WhisperError";
+		this.kind = kind;
+	}
+}
 
 export function requiresWhisperConversion(filePath: string): boolean {
 	const ext = path.extname(filePath).toLowerCase();
@@ -80,9 +92,10 @@ async function convertToWebmOpus(
 				// no-op
 			}
 			const diagnostics = stderrBuffer.slice(-20).join(" ").trim();
+			const diagnosticsSuffix = diagnostics ? `: ${diagnostics}` : "";
 			fail(
 				new Error(
-					`FFmpeg-Konvertierung Timeout nach ${timeoutMs}ms${diagnostics ? `: ${diagnostics}` : ""}`,
+					`FFmpeg-Konvertierung Timeout nach ${timeoutMs}ms${diagnosticsSuffix}`,
 				),
 			);
 		}, timeoutMs);
@@ -102,9 +115,10 @@ async function convertToWebmOpus(
 			}
 
 			const diagnostics = stderrBuffer.slice(-20).join(" ").trim();
+			const diagnosticsSuffix = diagnostics ? `: ${diagnostics}` : "";
 			fail(
 				new Error(
-					`FFmpeg-Konvertierung fehlgeschlagen (Exit ${code ?? "unknown"})${diagnostics ? `: ${diagnostics}` : ""}`,
+					`FFmpeg-Konvertierung fehlgeschlagen (Exit ${code ?? "unknown"})${diagnosticsSuffix}`,
 				),
 			);
 		});
@@ -122,7 +136,7 @@ export async function transcribeFile(
 	baseUrl?: string,
 ): Promise<string> {
 	if (!fs.existsSync(filePath)) {
-		throw new Error(`Datei nicht gefunden: ${filePath}`);
+		throw new WhisperError("runtime", `Datei nicht gefunden: ${filePath}`);
 	}
 
 	let uploadFilePath = filePath;
@@ -131,7 +145,11 @@ export async function transcribeFile(
 	try {
 		if (requiresWhisperConversion(filePath)) {
 			temporaryFilePath = buildTemporaryWebmPath(filePath);
-			await convertToWebmOpus(filePath, temporaryFilePath);
+			try {
+				await convertToWebmOpus(filePath, temporaryFilePath);
+			} catch (error) {
+				throw new WhisperError("runtime", (error as Error).message);
+			}
 			uploadFilePath = temporaryFilePath;
 		}
 
@@ -142,14 +160,25 @@ export async function transcribeFile(
 			...(baseUrl ? { baseURL: baseUrl } : {}),
 		});
 
-		const transcription = await client.audio.transcriptions.create({
-			file: fs.createReadStream(uploadFilePath),
-			model: "whisper-1",
-			language,
-			response_format: "text",
-		});
+		let transcription = "";
+		try {
+			transcription = await client.audio.transcriptions.create({
+				file: fs.createReadStream(uploadFilePath),
+				model: "whisper-1",
+				language,
+				response_format: "text",
+			});
+		} catch (error) {
+			throw new WhisperError("api", (error as Error).message);
+		}
 
-		return transcription as unknown as string;
+		return transcription;
+	} catch (error) {
+		if (error instanceof WhisperError) {
+			throw error;
+		}
+
+		throw new WhisperError("runtime", (error as Error).message);
 	} finally {
 		if (temporaryFilePath && fs.existsSync(temporaryFilePath)) {
 			try {

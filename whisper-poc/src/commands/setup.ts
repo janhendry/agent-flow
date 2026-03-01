@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import inquirer from "inquirer";
-import os from "os";
-import path from "path";
+import os from "node:os";
+import path from "node:path";
 import { Config, RecordingMode } from "../types.js";
 import {
 	findSystemAudioDevice,
@@ -15,6 +15,7 @@ import {
 	saveConfig,
 } from "../utils/config.js";
 import { createCliSecretStore } from "../adapters/cli/secret-store.adapter.js";
+import { emitCliErrorAndExit } from "../utils/cli-error-contract.js";
 
 const IS_WINDOWS = process.platform === "win32";
 
@@ -65,6 +66,10 @@ function isPromptExitError(err: unknown): boolean {
 
 export async function setupCommand(): Promise<void> {
 	try {
+		if (process.env["WHISPER_POC_TEST_FORCE_SETUP_ERROR"] === "1") {
+			throw new Error("Forced setup runtime error for integration tests");
+		}
+
 		console.log(chalk.cyan("\n🎙  Whisper POC – Setup\n"));
 		const { name: platformName, installHint } = getPlatformInfo();
 		console.log(chalk.gray(`Plattform: ${platformName}`));
@@ -224,8 +229,7 @@ export async function setupCommand(): Promise<void> {
 						{ name: "Auto (empfohlen)", value: -1 },
 						...systemDeviceChoices,
 					],
-					default:
-						draftConfig.systemIndex !== undefined ? draftConfig.systemIndex : -1,
+					default: draftConfig.systemIndex ?? -1,
 				});
 
 				if (systemIndex === -1) {
@@ -354,6 +358,6 @@ export async function setupCommand(): Promise<void> {
 			console.log(chalk.yellow("\nℹ️  Setup abgebrochen.\n"));
 			return;
 		}
-		throw err;
+		emitCliErrorAndExit("setup", "setup-runtime", (err as Error).message);
 	}
 }
