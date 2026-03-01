@@ -77,6 +77,13 @@ function saveSecrets(secretFile: string, payload: SecretPayload): void {
 	if (!fs.existsSync(configDir)) {
 		fs.mkdirSync(configDir, { recursive: true });
 	}
+	if (process.platform !== "win32") {
+		try {
+			fs.chmodSync(configDir, 0o700);
+		} catch {
+			// noop
+		}
+	}
 	const tempFile = `${secretFile}.tmp`;
 	fs.writeFileSync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 	if (process.platform !== "win32") {
@@ -87,6 +94,13 @@ function saveSecrets(secretFile: string, payload: SecretPayload): void {
 		}
 	}
 	fs.renameSync(tempFile, secretFile);
+	if (process.platform !== "win32") {
+		try {
+			fs.chmodSync(secretFile, 0o600);
+		} catch {
+			// noop
+		}
+	}
 }
 
 class CliSecretStoreAdapter implements SecretStorePort {

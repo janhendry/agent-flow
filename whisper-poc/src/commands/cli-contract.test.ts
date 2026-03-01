@@ -147,3 +147,34 @@ test("transcribe: nutzt Secret vor Env, ignoriert Klartext-Key in Config", () =>
 
 	assert.equal(resolved.apiKey, "secret-key");
 });
+
+test("transcribe: normalisiert API-Key aus Env (trim + empty => undefined)", () => {
+	const trimmed = resolveTranscribeSettings(
+		{},
+		null,
+		undefined,
+		{ OPENAI_API_KEY: "  env-key  " },
+		true,
+	);
+	assert.equal(trimmed.apiKey, "env-key");
+
+	const empty = resolveTranscribeSettings(
+		{},
+		null,
+		undefined,
+		{ OPENAI_API_KEY: "   " },
+		true,
+	);
+	assert.equal(empty.apiKey, undefined);
+});
+
+test("transcribe: normalisiert API-Key-Flag und fällt korrekt zurück", () => {
+	const fromSecret = resolveTranscribeSettings(
+		{ apiKey: "   " },
+		null,
+		" secret-key ",
+		{ OPENAI_API_KEY: "env-key" },
+		true,
+	);
+	assert.equal(fromSecret.apiKey, "secret-key");
+});

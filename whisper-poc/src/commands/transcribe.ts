@@ -38,6 +38,27 @@ interface ClipboardFailureDecision {
 	message: string;
 }
 
+interface TranscriptWriteResultSuccess {
+	ok: true;
+}
+
+interface TranscriptWriteResultFailure {
+	ok: false;
+	message: string;
+}
+
+type TranscriptWriteResult =
+	| TranscriptWriteResultSuccess
+	| TranscriptWriteResultFailure;
+
+function normalizeOptionalString(value: string | undefined): string | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+	const normalized = value.trim();
+	return normalized.length > 0 ? normalized : undefined;
+}
+
 export function resolveTranscribeDeliveryPlan(writeToStdout: boolean): {
 	copyToClipboard: true;
 	writeToStdout: boolean;
@@ -56,6 +77,40 @@ export function buildTranscribeWarningStderrEvent(
 	meta: TranscribeWarningMeta,
 ): string {
 	return `${JSON.stringify(meta)}\n`;
+}
+
+export function resolveTranscribeOutputFile(
+	inputFilePath: string,
+	explicitOutput?: string,
+): string {
+	if (explicitOutput) {
+		return explicitOutput;
+	}
+
+	const parsedInput = path.parse(inputFilePath);
+	let defaultOutput = path.join(parsedInput.dir, `${parsedInput.name}.txt`);
+
+	if (path.resolve(defaultOutput) === path.resolve(inputFilePath)) {
+		defaultOutput = `${inputFilePath}.txt`;
+	}
+
+	return defaultOutput;
+}
+
+export function writeTranscriptToFile(
+	outputFilePath: string,
+	transcript: string,
+	writeFileFn: typeof fs.writeFileSync = fs.writeFileSync,
+): TranscriptWriteResult {
+	try {
+		writeFileFn(outputFilePath, transcript, "utf-8");
+		return { ok: true };
+	} catch (err) {
+		return {
+			ok: false,
+			message: `Transkript konnte nicht gespeichert werden: ${(err as Error).message}`,
+		};
+	}
 }
 
 export function resolveClipboardFailureDecision(
@@ -115,11 +170,13 @@ export function resolveTranscribeSettings(
 	env: NodeJS.ProcessEnv = process.env,
 	stdoutIsTty = process.stdout.isTTY,
 ): ResolvedTranscribeSettings {
+	const resolvedApiKey =
+		normalizeOptionalString(options.apiKey) ??
+		normalizeOptionalString(secretApiKey) ??
+		normalizeOptionalString(env["OPENAI_API_KEY"]);
+
 	return {
-		apiKey:
-			options.apiKey ??
-			secretApiKey ??
-			env["OPENAI_API_KEY"],
+		apiKey: resolvedApiKey,
 		baseUrl: options.baseUrl ?? config?.baseUrl ?? env["OPENAI_BASE_URL"],
 		language: options.language ?? "de",
 		writeToStdout: options.stdout === true || !stdoutIsTty,
@@ -208,10 +265,11 @@ export async function transcribeCommand(
 	}
 
 	// Optional: in Datei speichern
-	const outFile =
-		options.output ?? absPath.replace(/\.(wav|mp3|m4a|ogg|flac)$/i, ".txt");
-
-	fs.writeFileSync(outFile, transcript, "utf-8");
+	const outFile = resolveTranscribeOutputFile(absPath, options.output);
+	const writeResult = writeTranscriptToFile(outFile, transcript);
+	if (!writeResult.ok) {
+		emitTranscribeError("runtime-transcription-failed", writeResult.message);
+	}
 
 	let clipboardWarning: string | undefined;
 
