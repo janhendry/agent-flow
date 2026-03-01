@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { startApp } from "./app.js";
+import { diagnoseCommand } from "./commands/diagnose.js";
 import { recordCommand } from "./commands/record.js";
 import { setupCommand } from "./commands/setup.js";
 import { transcribeCommand } from "./commands/transcribe.js";
+import { applyRuntimeWarningPolicy } from "./utils/runtime-warning-policy.js";
+
+applyRuntimeWarningPolicy();
 
 const program = new Command();
 
@@ -54,6 +58,13 @@ program
 	.option("-b, --base-url <url>", "OpenAI-kompatible Base URL")
 	.action(async (file: string, options) => {
 		await transcribeCommand(file, options);
+	});
+
+program
+	.command("diagnose")
+	.description("Diagnose für ffmpeg, API-Key und Konfigurationskonsistenz")
+	.action(async () => {
+		await diagnoseCommand();
 	});
 
 program.parse(process.argv);

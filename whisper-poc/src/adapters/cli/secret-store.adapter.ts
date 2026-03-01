@@ -1,33 +1,83 @@
-import fs from "fs";
-import os from "os";
-import path from "path";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { SecretStorePort } from "../../core/ports/secret-store.port.js";
-import { configExists, loadConfig } from "../../utils/config.js";
+import { type Config, type RecordingMode } from "../../types.js";
+import { configExists, loadConfig, saveConfig } from "../../utils/config.js";
 
 interface SecretPayload {
 	apiKey?: string;
 }
 
-const CONFIG_DIR = path.join(os.homedir(), ".whisper-poc");
-const SECRET_FILE = path.join(CONFIG_DIR, "secrets.json");
+interface ConfigAccessor {
+	exists(): boolean;
+	load(): Config;
+	save(config: Config): void;
+}
 
-function loadSecrets(): SecretPayload {
-	if (!fs.existsSync(SECRET_FILE)) {
+interface CliSecretStoreAdapterOptions {
+	baseDir?: string;
+	configAccessor?: ConfigAccessor;
+}
+
+const DEFAULT_OUTPUT_DIR = path.join(
+	os.homedir(),
+	"Desktop",
+	"whisper-recordings",
+);
+
+function normalizeLegacyConfig(rawConfig: Config): Config {
+	const normalizedMode: RecordingMode =
+		rawConfig.mode === "mic" ||
+			rawConfig.mode === "system" ||
+			rawConfig.mode === "both"
+			? rawConfig.mode
+			: "mic";
+
+	return {
+		mode: normalizedMode,
+		micIndex: Number.isInteger(rawConfig.micIndex) ? rawConfig.micIndex : 0,
+		micName: rawConfig.micName?.trim() || "Standard",
+		systemIndex: rawConfig.systemIndex,
+		systemName: rawConfig.systemName,
+		outputDir: rawConfig.outputDir?.trim() || DEFAULT_OUTPUT_DIR,
+		baseUrl: rawConfig.baseUrl,
+		apiKey: rawConfig.apiKey,
+	};
+}
+
+function resolveConfigAccessor(
+	override?: ConfigAccessor,
+): ConfigAccessor {
+	if (override) {
+		return override;
+	}
+
+	return {
+		exists: () => configExists(),
+		load: () => loadConfig(),
+		save: (config) => saveConfig(config),
+	};
+}
+
+function loadSecrets(secretFile: string): SecretPayload {
+	if (!fs.existsSync(secretFile)) {
 		return {};
 	}
 	try {
-		const raw = fs.readFileSync(SECRET_FILE, "utf-8");
+		const raw = fs.readFileSync(secretFile, "utf-8");
 		return JSON.parse(raw) as SecretPayload;
 	} catch {
 		return {};
 	}
 }
 
-function saveSecrets(payload: SecretPayload): void {
-	if (!fs.existsSync(CONFIG_DIR)) {
-		fs.mkdirSync(CONFIG_DIR, { recursive: true });
+function saveSecrets(secretFile: string, payload: SecretPayload): void {
+	const configDir = path.dirname(secretFile);
+	if (!fs.existsSync(configDir)) {
+		fs.mkdirSync(configDir, { recursive: true });
 	}
-	const tempFile = `${SECRET_FILE}.tmp`;
+	const tempFile = `${secretFile}.tmp`;
 	fs.writeFileSync(tempFile, JSON.stringify(payload, null, 2), "utf-8");
 	if (process.platform !== "win32") {
 		try {
@@ -36,27 +86,71 @@ function saveSecrets(payload: SecretPayload): void {
 			// noop
 		}
 	}
-	fs.renameSync(tempFile, SECRET_FILE);
+	fs.renameSync(tempFile, secretFile);
 }
 
 class CliSecretStoreAdapter implements SecretStorePort {
+	private readonly secretFile: string;
+
+	private readonly configAccessor: ConfigAccessor;
+
+	constructor(options?: CliSecretStoreAdapterOptions) {
+		const baseDir = options?.baseDir ?? path.join(os.homedir(), ".whisper-poc");
+		this.secretFile = path.join(baseDir, "secrets.json");
+		this.configAccessor = resolveConfigAccessor(options?.configAccessor);
+	}
+
+	private migrateLegacyApiKeyIfNeeded(): string | undefined {
+		if (!this.configAccessor.exists()) {
+			return undefined;
+		}
+
+		const loadedConfig = this.configAccessor.load();
+		const legacyApiKey = loadedConfig.apiKey?.trim();
+		if (!legacyApiKey) {
+			return undefined;
+		}
+
+		saveSecrets(this.secretFile, { apiKey: legacyApiKey });
+		const normalizedConfig = normalizeLegacyConfig(loadedConfig);
+		normalizedConfig.apiKey = undefined;
+		this.configAccessor.save(normalizedConfig);
+		return legacyApiKey;
+	}
+
 	getApiKey(): string | undefined {
-		const fromSecretFile = loadSecrets().apiKey?.trim();
+		const fromSecretFile = loadSecrets(this.secretFile).apiKey?.trim();
 		if (fromSecretFile) {
 			return fromSecretFile;
 		}
-		if (!configExists()) {
-			return undefined;
+
+		try {
+			return this.migrateLegacyApiKeyIfNeeded();
+		} catch (err) {
+			throw new Error(
+				`Secret-Store-Lesezugriff fehlgeschlagen. Prüfe Dateirechte und Konfiguration: ${(err as Error).message}`,
+			);
 		}
-		return loadConfig().apiKey?.trim() || undefined;
 	}
 
 	setApiKey(apiKey: string): void {
-		saveSecrets({ apiKey: apiKey.trim() });
+		try {
+			saveSecrets(this.secretFile, { apiKey: apiKey.trim() });
+		} catch (err) {
+			throw new Error(
+				`Secret-Store-Schreibzugriff fehlgeschlagen. Prüfe Dateirechte: ${(err as Error).message}`,
+			);
+		}
 	}
 
 	clearApiKey(): void {
-		saveSecrets({});
+		try {
+			saveSecrets(this.secretFile, {});
+		} catch (err) {
+			throw new Error(
+				`Secret-Store-Löschzugriff fehlgeschlagen. Prüfe Dateirechte: ${(err as Error).message}`,
+			);
+		}
 	}
 
 	providerName(): string {
@@ -64,6 +158,8 @@ class CliSecretStoreAdapter implements SecretStorePort {
 	}
 }
 
-export function createCliSecretStore(): SecretStorePort {
-	return new CliSecretStoreAdapter();
+export function createCliSecretStore(
+	options?: CliSecretStoreAdapterOptions,
+): SecretStorePort {
+	return new CliSecretStoreAdapter(options);
 }

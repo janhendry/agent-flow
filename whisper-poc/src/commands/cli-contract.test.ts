@@ -89,7 +89,7 @@ test("record: deterministisch ohne --output nutzt recording.wav", () => {
 	assert.equal(path.normalize(output), path.normalize("/tmp/records/recording.wav"));
 });
 
-test("transcribe: Priorität Flag > Config > Secret > Env", () => {
+test("transcribe: Priorität Flag > Secret > Env", () => {
 	const resolved = resolveTranscribeSettings(
 		{
 			apiKey: "flag-key",
@@ -134,4 +134,16 @@ test("transcribe: ohne --stdout und mit TTY bleibt stdout optional", () => {
 	);
 
 	assert.equal(resolved.writeToStdout, false);
+});
+
+test("transcribe: nutzt Secret vor Env, ignoriert Klartext-Key in Config", () => {
+	const resolved = resolveTranscribeSettings(
+		{},
+		baseConfig,
+		"secret-key",
+		{ OPENAI_API_KEY: "env-key" },
+		true,
+	);
+
+	assert.equal(resolved.apiKey, "secret-key");
 });

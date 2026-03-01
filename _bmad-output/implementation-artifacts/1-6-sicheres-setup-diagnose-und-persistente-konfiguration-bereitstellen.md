@@ -1,6 +1,6 @@
 # Story 1.6: Sicheres Setup, Diagnose und persistente Konfiguration bereitstellen
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -16,22 +16,22 @@ so that ich WhisperFlow sicher einrichten und zuverlässig betreiben kann.
 
 ## Tasks / Subtasks
 
-- [ ] Sicheres API-Key-Setup und Zugriffspfad konsolidieren (AC: 1)
-  - [ ] Setup-Flow speichert API-Key ausschließlich über Secret-Store/Keychain-Adapter (kein Klartext in persistenter Config)
-  - [ ] API-Key-Abruf für relevante Commands (`setup`, `transcribe`, ggf. `diagnose`) vereinheitlichen
-  - [ ] Fehlerfälle beim Secret-Store liefern klare, handlungsorientierte stderr-Meldungen mit stabilen Exit-Codes
-- [ ] Diagnose-Command für Abhängigkeiten, API-Erreichbarkeit und Konfigurationszustand bereitstellen (AC: 1)
-  - [ ] CLI-Command `diagnose` (oder äquivalenter Subcommand) ergänzt und in `cli.ts` angebunden
-  - [ ] Diagnose prüft mindestens: FFmpeg-Verfügbarkeit, API-Key-Präsenz, Grundkonfigurationskonsistenz
-  - [ ] Diagnose-Output bleibt skriptbar (stdout Ergebnisdaten, stderr nur Fehler/Diagnose)
-- [ ] Persistenz und Konsistenz der Konfiguration über CLI-Modi absichern (AC: 1)
-  - [ ] Setup-Änderungen sind nach Neustart verfügbar und werden in `record`/`transcribe` konsistent genutzt
-  - [ ] Konfigurationsdefaults und Migrations-/Fallback-Verhalten sind deterministisch
-  - [ ] Security-Regel prüfen: keine Secret-Leaks in Logs, Fehlermeldungen oder gespeicherten Dateien
-- [ ] Tests und Qualitätsgates ergänzen (AC: 1)
-  - [ ] Unit-/Integrationstests für Secret-Store-Flow und Diagnosepfade
-  - [ ] Regressionstests für persistente Konfigurationsnutzung in betroffenen Commands
-  - [ ] `npm run verify` erfolgreich
+- [x] Sicheres API-Key-Setup und Zugriffspfad konsolidieren (AC: 1)
+  - [x] Setup-Flow speichert API-Key ausschließlich über Secret-Store/Keychain-Adapter (kein Klartext in persistenter Config)
+  - [x] API-Key-Abruf für relevante Commands (`setup`, `transcribe`, ggf. `diagnose`) vereinheitlichen
+  - [x] Fehlerfälle beim Secret-Store liefern klare, handlungsorientierte stderr-Meldungen mit stabilen Exit-Codes
+- [x] Diagnose-Command für Abhängigkeiten, API-Erreichbarkeit und Konfigurationszustand bereitstellen (AC: 1)
+  - [x] CLI-Command `diagnose` (oder äquivalenter Subcommand) ergänzt und in `cli.ts` angebunden
+  - [x] Diagnose prüft mindestens: FFmpeg-Verfügbarkeit, API-Key-Präsenz, Grundkonfigurationskonsistenz
+  - [x] Diagnose-Output bleibt skriptbar (stdout Ergebnisdaten, stderr nur Fehler/Diagnose)
+- [x] Persistenz und Konsistenz der Konfiguration über CLI-Modi absichern (AC: 1)
+  - [x] Setup-Änderungen sind nach Neustart verfügbar und werden in `record`/`transcribe` konsistent genutzt
+  - [x] Konfigurationsdefaults und Migrations-/Fallback-Verhalten sind deterministisch
+  - [x] Security-Regel prüfen: keine Secret-Leaks in Logs, Fehlermeldungen oder gespeicherten Dateien
+- [x] Tests und Qualitätsgates ergänzen (AC: 1)
+  - [x] Unit-/Integrationstests für Secret-Store-Flow und Diagnosepfade
+  - [x] Regressionstests für persistente Konfigurationsnutzung in betroffenen Commands
+  - [x] `npm run verify` erfolgreich
 
 ## Dev Notes
 
@@ -118,16 +118,34 @@ GPT-5.3-Codex
 
 - create-story Workflow für Story 1.6 über sprint-status Auto-Discovery ausgeführt.
 - Artefakte analysiert: epics, prd, architecture, vorige Story 1.5, Git-Historie.
+- Dev-Umsetzung in `whisper-poc` durchgeführt: Secret-Store-Migration, Diagnose-Command, Contract-konforme Fehlersignale.
+- Test- und Qualitätsläufe ausgeführt: `runTests` (gesamt) und `npm run verify` erfolgreich.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Story auf `ready-for-dev` gesetzt.
+- Secret-Store-Adapter konsolidiert: Legacy-`apiKey` aus `config.json` wird deterministisch migriert und aus persistenter Config entfernt.
+- `transcribe` nutzt jetzt sicheren API-Key-Resolve-Pfad (`Flag > Secret-Store > Env`) ohne Klartext-Config-Fallback.
+- Neuer CLI-Subcommand `diagnose` liefert skriptbares JSON auf `stdout` (Checks: `ffmpeg`, API-Key-Präsenz, Konfigurationskonsistenz).
+- Secret-Store-Fehlerpfade in `setup` liefern handlungsorientierte stderr-Fehler über den bestehenden Exit-Code-Contract.
+- Unit-/Contract-Tests für Diagnose und Secret-Store ergänzt; Regressionen bleiben grün.
 
 ### File List
 
 - \_bmad-output/implementation-artifacts/1-6-sicheres-setup-diagnose-und-persistente-konfiguration-bereitstellen.md
+- whisper-poc/src/adapters/cli/secret-store.adapter.ts
+- whisper-poc/src/adapters/cli/secret-store.adapter.test.ts
+- whisper-poc/src/commands/cli-contract.test.ts
+- whisper-poc/src/commands/diagnose.ts
+- whisper-poc/src/commands/diagnose.test.ts
+- whisper-poc/src/commands/setup.ts
+- whisper-poc/src/commands/transcribe.ts
+- whisper-poc/src/cli.ts
+- whisper-poc/src/utils/cli-error-contract.ts
+- whisper-poc/src/utils/cli-error-contract.test.ts
 
 ### Change Log
 
 - 2026-03-01: Story 1.6 aus Backlog generiert und mit umfassendem Dev-Kontext auf `ready-for-dev` gesetzt.
+- 2026-03-01: Story 1.6 implementiert (sicherer Secret-Store-Pfad, Diagnose-Command, persistente Konfigurationskonsistenz, Tests & Qualitätsgates) und auf `review` gesetzt.

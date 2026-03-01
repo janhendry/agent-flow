@@ -14,7 +14,8 @@ export type CliErrorCode =
 	| "ffmpeg-record"
 	| "recording-failed"
 	| "clipboard-failed"
-	| "setup-runtime";
+	| "setup-runtime"
+	| "diagnose-runtime";
 
 export const CLI_EXIT_CODES: Record<CliErrorClass, number> = {
 	validation: 2,

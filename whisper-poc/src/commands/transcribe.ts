@@ -118,7 +118,6 @@ export function resolveTranscribeSettings(
 	return {
 		apiKey:
 			options.apiKey ??
-			config?.apiKey ??
 			secretApiKey ??
 			env["OPENAI_API_KEY"],
 		baseUrl: options.baseUrl ?? config?.baseUrl ?? env["OPENAI_BASE_URL"],
@@ -153,10 +152,19 @@ export async function transcribeCommand(
 
 	const config = configExists() ? loadConfig() : null;
 	const secretStore = createCliSecretStore();
+	let secretApiKey: string | undefined;
+	try {
+		secretApiKey = secretStore.getApiKey();
+	} catch (err) {
+		emitTranscribeError(
+			"runtime-transcription-failed",
+			`Secret-Store nicht verfügbar. Prüfe Dateirechte und Konfiguration: ${(err as Error).message}`,
+		);
+	}
 	const settings = resolveTranscribeSettings(
 		options,
 		config,
-		secretStore.getApiKey(),
+		secretApiKey,
 	);
 	const deliveryPlan = resolveTranscribeDeliveryPlan(settings.writeToStdout);
 
@@ -167,7 +175,7 @@ export async function transcribeCommand(
 	if (!settings.apiKey) {
 		emitTranscribeError(
 			"missing-api-key",
-			"Kein OpenAI API-Key gefunden (Priorität: Flag > Config > Secret > Env)",
+			"Kein OpenAI API-Key gefunden (Priorität: Flag > Secret > Env)",
 		);
 	}
 

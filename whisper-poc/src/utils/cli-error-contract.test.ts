@@ -22,7 +22,9 @@ test("cli-error-contract: Runtime-Fehler sind Fallback mit stabilem Exit-Code", 
 	assert.equal(classifyCliErrorCode("ffmpeg-missing"), "runtime");
 	assert.equal(classifyCliErrorCode("runtime-transcription-failed"), "runtime");
 	assert.equal(classifyCliErrorCode("setup-runtime"), "runtime");
+	assert.equal(classifyCliErrorCode("diagnose-runtime"), "runtime");
 	assert.equal(resolveCliExitCode("setup-runtime"), 20);
+	assert.equal(resolveCliExitCode("diagnose-runtime"), 20);
 });
 
 test("cli-error-contract: Error-Event enthält Klasseninformation", () => {

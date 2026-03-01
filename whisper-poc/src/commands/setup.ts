@@ -83,11 +83,17 @@ export async function setupCommand(): Promise<void> {
 				outputDir: DEFAULT_OUTPUT_DIR,
 			};
 		const secretStore = createCliSecretStore();
-		if (!secretStore.getApiKey() && existingConfig.apiKey?.trim()) {
-			secretStore.setApiKey(existingConfig.apiKey);
-			existingConfig.apiKey = undefined;
-			saveConfig(existingConfig);
+		let initialApiKey: string | undefined;
+		try {
+			initialApiKey = secretStore.getApiKey();
+		} catch (err) {
+			emitCliErrorAndExit(
+				"setup",
+				"setup-runtime",
+				`Secret-Store nicht verfügbar. Bitte Dateirechte und Benutzerprofil prüfen: ${(err as Error).message}`,
+			);
 		}
+		existingConfig.apiKey = undefined;
 
 		if (configExists()) {
 			console.log(chalk.gray("Vorhandene Konfiguration gefunden."));
@@ -160,7 +166,7 @@ export async function setupCommand(): Promise<void> {
 				{
 					name: menuRow(
 						"API Key",
-						secretStore.getApiKey() ? "gesetzt" : "nicht gesetzt",
+						initialApiKey ? "gesetzt" : "nicht gesetzt",
 					),
 					value: "apiKey",
 				},
@@ -270,7 +276,16 @@ export async function setupCommand(): Promise<void> {
 				});
 
 				if (apiAction === "clear") {
-					secretStore.clearApiKey();
+					try {
+						secretStore.clearApiKey();
+					} catch (err) {
+						emitCliErrorAndExit(
+							"setup",
+							"setup-runtime",
+							`API-Key konnte im Secret-Store nicht gelöscht werden. Prüfe Dateirechte: ${(err as Error).message}`,
+						);
+					}
+					initialApiKey = undefined;
 					draftConfig.apiKey = undefined;
 					saveConfig(draftConfig);
 					console.log(chalk.green("✓ API Key gelöscht"));
@@ -285,7 +300,16 @@ export async function setupCommand(): Promise<void> {
 				});
 
 				if (apiKey.trim().length > 0) {
-					secretStore.setApiKey(apiKey.trim());
+					try {
+						secretStore.setApiKey(apiKey.trim());
+					} catch (err) {
+						emitCliErrorAndExit(
+							"setup",
+							"setup-runtime",
+							`API-Key konnte im Secret-Store nicht gespeichert werden. Prüfe Dateirechte: ${(err as Error).message}`,
+						);
+					}
+					initialApiKey = apiKey.trim();
 					draftConfig.apiKey = undefined;
 					saveConfig(draftConfig);
 					console.log(chalk.green("✓ API Key gespeichert"));
@@ -346,7 +370,7 @@ export async function setupCommand(): Promise<void> {
 		console.log(chalk.white("  Path:       ") + chalk.cyan(draftConfig.outputDir));
 		console.log(
 			chalk.white("  API Key:    ") +
-			chalk.cyan(secretStore.getApiKey() ? "gesetzt" : "nicht gesetzt"),
+			chalk.cyan(initialApiKey ? "gesetzt" : "nicht gesetzt"),
 		);
 		console.log(
 			chalk.white("  Base URL:   ") +

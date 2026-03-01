@@ -46,7 +46,7 @@ development_status:
   1-3-audio-pipeline-und-whisper-transkription-im-kernflow-integrieren: done
   1-4-output-contract-mit-clipboard-und-stdout-option-umsetzen: done
   1-5-fehlerklassifikation-exit-codes-und-stderr-semantik-stabilisieren: done
-  1-6-sicheres-setup-diagnose-und-persistente-konfiguration-bereitstellen: backlog
+  1-6-sicheres-setup-diagnose-und-persistente-konfiguration-bereitstellen: review
   epic-1-retrospective: optional
 
   epic-2: backlog
