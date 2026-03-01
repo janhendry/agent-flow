@@ -1,28 +1,60 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { startApp } from "./app.js";
 import { diagnoseCommand } from "./commands/diagnose.js";
+import { interactiveCommand } from "./commands/interactive.js";
 import { recordCommand } from "./commands/record.js";
 import { setupCommand } from "./commands/setup.js";
 import { transcribeCommand } from "./commands/transcribe.js";
+import { emitCliErrorAndExit } from "./utils/cli-error-contract.js";
 import { applyRuntimeWarningPolicy } from "./utils/runtime-warning-policy.js";
 
 applyRuntimeWarningPolicy();
 
 const program = new Command();
 
+async function runInteractiveCommand(): Promise<void> {
+	if (process.env["WHISPER_POC_TEST_FORCE_INTERACTIVE_SETUP_LOOP"] === "1") {
+		await interactiveCommand(
+			{
+				startApp: async () => "open-setup",
+				setupCommand: async () => {},
+			},
+			2,
+		);
+		return;
+	}
+
+	await interactiveCommand();
+}
+
 program
 	.name("whisper-poc")
 	.description("Audio aufnehmen und mit Whisper transkribieren")
 	.version("0.1.0")
 	.action(async () => {
-		while (true) {
-			const result = await startApp();
-			if (result === "open-setup") {
-				await setupCommand();
-				continue;
-			}
-			break;
+		try {
+			await runInteractiveCommand();
+		} catch (error) {
+			emitCliErrorAndExit(
+				"interactive",
+				"setup-runtime",
+				`Interactive-Start fehlgeschlagen: ${(error as Error).message}`,
+			);
+		}
+	});
+
+program
+	.command("interactive")
+	.description("Interaktives Hauptmenü (keyboard-first)")
+	.action(async () => {
+		try {
+			await runInteractiveCommand();
+		} catch (error) {
+			emitCliErrorAndExit(
+				"interactive",
+				"setup-runtime",
+				`Interactive-Start fehlgeschlagen: ${(error as Error).message}`,
+			);
 		}
 	});
 

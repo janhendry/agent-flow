@@ -49,9 +49,9 @@ development_status:
   1-6-sicheres-setup-diagnose-und-persistente-konfiguration-bereitstellen: done
   epic-1-retrospective: done
 
-  epic-2: backlog
-  2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen: backlog
-  2-2-gefuehrten-record-transcribe-success-error-flow-implementieren: backlog
+  epic-2: in-progress
+  2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen: done
+  2-2-gefuehrten-record-transcribe-success-error-flow-implementieren: review
   2-3-recovery-und-diagnose-aktionen-im-fehlerkontext-anbieten: backlog
   2-4-erweiterte-capability-flows-dual-audio-llm-glossar-history-integrieren: backlog
   epic-2-retrospective: optional

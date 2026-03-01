@@ -7,6 +7,11 @@ import SelectInput from "ink-select-input";
 import os from "os";
 import path from "path";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  getInteractiveMainMenuItems,
+  type InteractiveMenuTarget,
+} from "./commands/interactive-menu.js";
+import { resolvePostRecordingScreen } from "./commands/interactive-flow.js";
 import { AudioDevice, Config, RecordingMode } from "./types.js";
 import { createCliSecretStore } from "./adapters/cli/secret-store.adapter.js";
 import {
@@ -36,7 +41,7 @@ type Screen =
   | { id: "summary"; filePath: string; durationSec: number; error?: string }
   | { id: "filepick"; action: "play" | "transcribe" }
   | { id: "playing"; filePath: string }
-  | { id: "transcript"; filePath: string }
+  | { id: "transcript"; filePath: string; origin: "record-flow" | "filepick" }
   | { id: "config" };
 
 export type AppExitReason = "exit" | "open-setup";
@@ -157,9 +162,7 @@ function LoadingScreen() {
 
 interface MenuScreenProps {
   data: SharedData;
-  onNavigate: (
-    target: "record" | "play" | "transcribe" | "config" | "exit",
-  ) => void;
+  onNavigate: (target: InteractiveMenuTarget) => void;
 }
 
 function MenuScreen({ data, onNavigate }: MenuScreenProps) {
@@ -171,13 +174,7 @@ function MenuScreen({ data, onNavigate }: MenuScreenProps) {
     both: "Mikrofon + System-Audio",
   };
 
-  const items: SelectItem[] = [
-    { label: "🎙  Aufnahme starten", value: "record" },
-    { label: "▶   Audio abspielen", value: "play" },
-    { label: "📝  Transkribieren", value: "transcribe" },
-    { label: "⚙   Einstellungen", value: "config" },
-    { label: "🚪  Beenden", value: "exit" },
-  ];
+  const items: SelectItem[] = getInteractiveMainMenuItems();
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -812,14 +809,23 @@ function PlayingScreen({ filePath, onDone }: PlayingScreenProps) {
 interface TranscriptScreenProps {
   filePath: string;
   data: SharedData;
+  origin: "record-flow" | "filepick";
   onDone: () => void;
 }
 
-function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
+function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenProps) {
   const spinner = useSpinner();
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [text, setText] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [remaining, setRemaining] = useState(3);
+  const doneRef = useRef(false);
+
+  const triggerDone = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setTimeout(() => onDone(), 0);
+  };
 
   useEffect(() => {
     const apiKey =
@@ -851,8 +857,23 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
   }, []);
 
   useInput(() => {
-    if (state !== "loading") onDone();
+    if (state !== "loading") triggerDone();
   });
+
+  useEffect(() => {
+    if (state === "loading") return;
+    const t = setInterval(() => {
+      setRemaining((r) => {
+        if (r <= 1) {
+          clearInterval(t);
+          triggerDone();
+          return 0;
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [state]);
 
   if (state === "loading") {
     return (
@@ -883,13 +904,16 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
           flexDirection="column"
         >
           <Text color="red" bold>
-            ❌ Fehler
+            ❌ Transkription fehlgeschlagen
           </Text>
           <Text> </Text>
           <Text color="gray">{errorMsg}</Text>
         </Box>
         <Text> </Text>
-        <Text color="gray">Beliebige Taste → Menü</Text>
+        <Text color="gray">
+          Zurück ins Menü in <Text color="yellow">{remaining}s</Text> – oder
+          beliebige Taste
+        </Text>
       </Box>
     );
   }
@@ -911,7 +935,7 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
         flexDirection="column"
       >
         <Text color="green" bold>
-          📝 Transkript
+          ✅ Transkription erfolgreich
         </Text>
         <Text> </Text>
         <Text>{preview}</Text>
@@ -924,9 +948,17 @@ function TranscriptScreen({ filePath, data, onDone }: TranscriptScreenProps) {
         <Text color="gray">
           Gespeichert: <Text color="white">{txtFile}</Text>
         </Text>
+        {origin === "record-flow" && (
+          <Text color="gray">
+            Flow: Aufnahme → Transkription abgeschlossen
+          </Text>
+        )}
       </Box>
       <Text> </Text>
-      <Text color="gray">Beliebige Taste → Menü</Text>
+      <Text color="gray">
+        Zurück ins Menü in <Text color="yellow">{remaining}s</Text> – oder
+        beliebige Taste
+      </Text>
     </Box>
   );
 }
@@ -1420,21 +1452,13 @@ function App({ onRequestSetup }: AppProps) {
       <RecordingScreen
         data={sharedData}
         onDone={(result) => {
-          if (!result.success) {
-            setScreen({
-              id: "summary",
-              filePath: result.rawFile,
-              durationSec: result.durationSec,
-              error: result.error,
-            });
-          } else {
-            setScreen({
-              id: "naming",
-              rawFile: result.rawFile,
-              startTime: result.startTime,
-              durationSec: result.durationSec,
-            });
-          }
+          const nextScreen = resolvePostRecordingScreen({
+            success: result.success,
+            rawFile: result.rawFile,
+            durationSec: result.durationSec,
+            error: result.error,
+          });
+          setScreen(nextScreen);
         }}
       />
     );
@@ -1474,7 +1498,7 @@ function App({ onRequestSetup }: AppProps) {
           setScreen(
             screen.action === "play"
               ? { id: "playing", filePath }
-              : { id: "transcript", filePath },
+              : { id: "transcript", filePath, origin: "filepick" },
           )
         }
         onBack={() => setScreen({ id: "menu" })}
@@ -1495,6 +1519,7 @@ function App({ onRequestSetup }: AppProps) {
     return (
       <TranscriptScreen
         filePath={screen.filePath}
+        origin={screen.origin}
         data={sharedData}
         onDone={() => setScreen({ id: "menu" })}
       />
