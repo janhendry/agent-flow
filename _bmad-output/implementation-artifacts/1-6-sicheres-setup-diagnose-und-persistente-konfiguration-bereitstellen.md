@@ -130,6 +130,11 @@ GPT-5.3-Codex
 - Neuer CLI-Subcommand `diagnose` liefert skriptbares JSON auf `stdout` (Checks: `ffmpeg`, API-Key-Präsenz, Konfigurationskonsistenz).
 - Secret-Store-Fehlerpfade in `setup` liefern handlungsorientierte stderr-Fehler über den bestehenden Exit-Code-Contract.
 - Unit-/Contract-Tests für Diagnose und Secret-Store ergänzt; Regressionen bleiben grün.
+- Post-Review-Fix: Transcribe-Default-Output für `.webm`/sonstige Eingaben auf sichere `.txt`-Auflösung gehärtet (kein Risiko der Input-Überschreibung).
+- Post-Review-Fix: Schreibfehler beim Persistieren des Transkripts werden contract-konform als Runtime-Fehler mit stabilem Exit-Code ausgegeben.
+- API-Key-Auflösung robustisiert (`trim`, Empty-Handling) für Flag/Secret/Env.
+- Gezielte Regressionstests ergänzt; betroffene Test-Suite und `npm run verify` erfolgreich.
+- Security-Entscheidung dokumentiert: API-Key-Klartextspeicherung im CLI-Secret-File bleibt vorerst akzeptiert und wird als späteres Hardening geführt.
 
 ### File List
 
@@ -141,6 +146,7 @@ GPT-5.3-Codex
 - whisper-poc/src/commands/diagnose.test.ts
 - whisper-poc/src/commands/setup.ts
 - whisper-poc/src/commands/transcribe.ts
+- whisper-poc/src/commands/transcribe-output-contract.test.ts
 - whisper-poc/src/cli.ts
 - whisper-poc/src/utils/cli-error-contract.ts
 - whisper-poc/src/utils/cli-error-contract.test.ts
@@ -149,3 +155,5 @@ GPT-5.3-Codex
 
 - 2026-03-01: Story 1.6 aus Backlog generiert und mit umfassendem Dev-Kontext auf `ready-for-dev` gesetzt.
 - 2026-03-01: Story 1.6 implementiert (sicherer Secret-Store-Pfad, Diagnose-Command, persistente Konfigurationskonsistenz, Tests & Qualitätsgates) und auf `review` gesetzt.
+- 2026-03-01: Post-Review-Delta umgesetzt: High-Befunde im Transcribe-Output/Write-Error-Handling behoben, API-Key-Normalisierung ergänzt, Tests erweitert, `verify` erneut grün.
+- 2026-03-01: Security-Hardening „echte OS-Keychain/safeStorage“ bewusst deferiert; Klartext-Dateispeicherung vorerst akzeptiert.
