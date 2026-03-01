@@ -43,9 +43,9 @@ development_status:
   epic-1: in-progress
   1-1-initiales-projekt-aus-starter-template-aufsetzen: done
   1-2-deterministische-unix-cli-befehle-fuer-record-transcribe-bereitstellen: done
-  1-3-audio-pipeline-und-whisper-transkription-im-kernflow-integrieren: review
-  1-4-output-contract-mit-clipboard-und-stdout-option-umsetzen: backlog
-  1-5-fehlerklassifikation-exit-codes-und-stderr-semantik-stabilisieren: backlog
+  1-3-audio-pipeline-und-whisper-transkription-im-kernflow-integrieren: done
+  1-4-output-contract-mit-clipboard-und-stdout-option-umsetzen: done
+  1-5-fehlerklassifikation-exit-codes-und-stderr-semantik-stabilisieren: in-progress
   1-6-sicheres-setup-diagnose-und-persistente-konfiguration-bereitstellen: backlog
   epic-1-retrospective: optional
 

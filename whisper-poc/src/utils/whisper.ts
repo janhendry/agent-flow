@@ -46,29 +46,63 @@ async function convertToWebmOpus(
 	outputPath: string,
 ): Promise<void> {
 	const ffmpegArgs = buildWhisperFfmpegArgs(inputPath, outputPath);
+	const timeoutMs = 120_000;
 
 	await new Promise<void>((resolve, reject) => {
 		const processHandle = spawn("ffmpeg", ffmpegArgs, {
 			stdio: ["ignore", "ignore", "pipe"],
 		});
 		const stderrBuffer: string[] = [];
+		let settled = false;
+
+		const fail = (error: Error): void => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			clearTimeout(timeoutHandle);
+			reject(error);
+		};
+
+		const succeed = (): void => {
+			if (settled) {
+				return;
+			}
+			settled = true;
+			clearTimeout(timeoutHandle);
+			resolve();
+		};
+
+		const timeoutHandle = setTimeout(() => {
+			try {
+				processHandle.kill("SIGKILL");
+			} catch {
+				// no-op
+			}
+			const diagnostics = stderrBuffer.slice(-20).join(" ").trim();
+			fail(
+				new Error(
+					`FFmpeg-Konvertierung Timeout nach ${timeoutMs}ms${diagnostics ? `: ${diagnostics}` : ""}`,
+				),
+			);
+		}, timeoutMs);
 
 		processHandle.stderr?.on("data", (chunk: Buffer) => {
 			stderrBuffer.push(chunk.toString());
 		});
 
 		processHandle.on("error", (error) => {
-			reject(new Error(`FFmpeg konnte nicht gestartet werden: ${error.message}`));
+			fail(new Error(`FFmpeg konnte nicht gestartet werden: ${error.message}`));
 		});
 
 		processHandle.on("close", (code) => {
 			if (code === 0) {
-				resolve();
+				succeed();
 				return;
 			}
 
 			const diagnostics = stderrBuffer.slice(-20).join(" ").trim();
-			reject(
+			fail(
 				new Error(
 					`FFmpeg-Konvertierung fehlgeschlagen (Exit ${code ?? "unknown"})${diagnostics ? `: ${diagnostics}` : ""}`,
 				),
@@ -94,20 +128,20 @@ export async function transcribeFile(
 	let uploadFilePath = filePath;
 	let temporaryFilePath: string | null = null;
 
-	if (requiresWhisperConversion(filePath)) {
-		temporaryFilePath = buildTemporaryWebmPath(filePath);
-		await convertToWebmOpus(filePath, temporaryFilePath);
-		uploadFilePath = temporaryFilePath;
-	}
-
-	const { default: OpenAI } = await import("openai");
-
-	const client = new OpenAI({
-		apiKey,
-		...(baseUrl ? { baseURL: baseUrl } : {}),
-	});
-
 	try {
+		if (requiresWhisperConversion(filePath)) {
+			temporaryFilePath = buildTemporaryWebmPath(filePath);
+			await convertToWebmOpus(filePath, temporaryFilePath);
+			uploadFilePath = temporaryFilePath;
+		}
+
+		const { default: OpenAI } = await import("openai");
+
+		const client = new OpenAI({
+			apiKey,
+			...(baseUrl ? { baseURL: baseUrl } : {}),
+		});
+
 		const transcription = await client.audio.transcriptions.create({
 			file: fs.createReadStream(uploadFilePath),
 			model: "whisper-1",

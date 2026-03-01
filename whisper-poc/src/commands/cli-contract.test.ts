@@ -123,3 +123,15 @@ test("transcribe: fallback ohne Flags", () => {
 	assert.equal(resolved.language, "de");
 	assert.equal(resolved.writeToStdout, true);
 });
+
+test("transcribe: ohne --stdout und mit TTY bleibt stdout optional", () => {
+	const resolved = resolveTranscribeSettings(
+		{},
+		baseConfig,
+		"secret-key",
+		{ OPENAI_API_KEY: "env-key", OPENAI_BASE_URL: "https://env.example" },
+		true,
+	);
+
+	assert.equal(resolved.writeToStdout, false);
+});
