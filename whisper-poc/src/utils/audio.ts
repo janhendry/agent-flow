@@ -140,9 +140,21 @@ export function buildFfmpegArgs(
 ): string[] {
 	const fmt = audioFormat();
 	const commonOut = ["-y", "-ar", "44100", "-ac", "2", outputFile];
+	const meter =
+		"astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.RMS_level";
 
 	if (mode === "mic") {
-		return ["-f", fmt, "-i", deviceInput(micDevice), ...commonOut];
+		return [
+			"-f",
+			fmt,
+			"-i",
+			deviceInput(micDevice),
+			"-filter_complex",
+			`[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0,${meter}[out]`,
+			"-map",
+			"[out]",
+			...commonOut,
+		];
 	}
 
 	if (mode === "system") {
@@ -155,13 +167,23 @@ export function buildFfmpegArgs(
 				"-i",
 				deviceInput(systemDevice),
 				"-filter_complex",
-				"[0:a]aresample=44100,pan=stereo|c0=c0|c1=c1[out]",
+				`[0:a]aresample=44100,pan=stereo|c0=c0|c1=c1,${meter}[out]`,
 				"-map",
 				"[out]",
 				...commonOut,
 			];
 		}
-		return ["-f", fmt, "-i", deviceInput(systemDevice), ...commonOut];
+		return [
+			"-f",
+			fmt,
+			"-i",
+			deviceInput(systemDevice),
+			"-filter_complex",
+			`[0:a]aresample=44100,pan=stereo|c0=c0|c1=c1,${meter}[out]`,
+			"-map",
+			"[out]",
+			...commonOut,
+		];
 	}
 
 	// both
@@ -181,7 +203,7 @@ export function buildFfmpegArgs(
 			"-filter_complex",
 			"[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0[mic];" +
 			"[1:a]aresample=44100,pan=stereo|c0=c0|c1=c1[sys];" +
-			"[mic][sys]amix=inputs=2:duration=first:dropout_transition=3[out]",
+			`[mic][sys]amix=inputs=2:duration=first:dropout_transition=3[mix];[mix]${meter}[out]`,
 			"-map",
 			"[out]",
 			...commonOut,
@@ -199,7 +221,7 @@ export function buildFfmpegArgs(
 		"-i",
 		deviceInput(systemDevice),
 		"-filter_complex",
-		"amix=inputs=2:duration=first:dropout_transition=3",
+		`amix=inputs=2:duration=first:dropout_transition=3,${meter}`,
 		...commonOut,
 	];
 }

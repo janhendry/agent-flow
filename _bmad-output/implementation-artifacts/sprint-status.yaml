@@ -51,8 +51,8 @@ development_status:
 
   epic-2: in-progress
   2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen: done
-  2-2-gefuehrten-record-transcribe-success-error-flow-implementieren: review
-  2-3-recovery-und-diagnose-aktionen-im-fehlerkontext-anbieten: backlog
+  2-2-gefuehrten-record-transcribe-success-error-flow-implementieren: done
+  2-3-recovery-und-diagnose-aktionen-im-fehlerkontext-anbieten: review
   2-4-erweiterte-capability-flows-dual-audio-llm-glossar-history-integrieren: backlog
   epic-2-retrospective: optional
 

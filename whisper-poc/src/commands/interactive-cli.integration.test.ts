@@ -20,6 +20,7 @@ test("cli help: interactive command ist vorhanden", () => {
 test("interactive: Setup-Weiterleitungsloop liefert contract-konformen Runtime-Fehler", () => {
 	const result = runCli(["interactive"], {
 		WHISPER_POC_TEST_FORCE_INTERACTIVE_SETUP_LOOP: "1",
+		PATH: process.env["PATH"] ?? "",
 	});
 
 	assert.equal(result.status, 20);
@@ -32,5 +33,23 @@ test("interactive: Setup-Weiterleitungsloop liefert contract-konformen Runtime-F
 	const event = JSON.parse(line as string);
 	assert.equal(event.command, "interactive");
 	assert.equal(event.code, "setup-runtime");
+	assert.equal(event.errorClass, "runtime");
+});
+
+test("interactive: fehlendes ffmpeg liefert contract-konformen Runtime-Fehler", () => {
+	const result = runCli(["interactive"], {
+		PATH: "",
+	});
+
+	assert.equal(result.status, 20);
+	const line = result.stderr
+		.split("\n")
+		.map((entry) => entry.trim())
+		.filter(Boolean)
+		.find((entry) => entry.startsWith("{"));
+	assert.ok(line, "Expected JSON error event on stderr");
+	const event = JSON.parse(line as string);
+	assert.equal(event.command, "interactive");
+	assert.equal(event.code, "ffmpeg-missing");
 	assert.equal(event.errorClass, "runtime");
 });

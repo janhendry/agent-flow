@@ -1,17 +1,24 @@
-import { ChildProcess } from "child_process";
-import fs from "fs";
+import { ChildProcess, spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { Box, render, Text, useApp, useInput } from "ink";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore – ink-select-input default export
 import SelectInput from "ink-select-input";
-import os from "os";
-import path from "path";
+import os from "node:os";
+import path from "node:path";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   getInteractiveMainMenuItems,
   type InteractiveMenuTarget,
 } from "./commands/interactive-menu.js";
 import { resolvePostRecordingScreen } from "./commands/interactive-flow.js";
+import {
+  deriveAudioLevelFromFfmpegOutput,
+  renderAudioLevelBars,
+} from "./commands/interactive-audio-level.js";
+import { resolveTranscribeUiCommand } from "./commands/interactive-transcribe-ui.js";
+import { toActionableTranscribeErrorHint } from "./commands/interactive-transcribe-error-hints.js";
+import { buildDiagnoseReport } from "./commands/diagnose.js";
 import { AudioDevice, Config, RecordingMode } from "./types.js";
 import { createCliSecretStore } from "./adapters/cli/secret-store.adapter.js";
 import {
@@ -52,6 +59,10 @@ interface SharedData {
   systemDevice: AudioDevice | undefined;
   hasConfig: boolean;
 }
+
+type ConfigReturnTarget =
+  | { id: "menu" }
+  | { id: "transcript"; filePath: string; origin: "record-flow" | "filepick" };
 
 const DEFAULT_CONFIG: Config = {
   mode: "mic",
@@ -246,6 +257,7 @@ interface RecordingScreenProps {
 function RecordingScreen({ data, onDone }: RecordingScreenProps) {
   const [elapsed, setElapsed] = useState(0);
   const [inputArmed, setInputArmed] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
   const startTimeRef = useRef<Date>(new Date());
   const [rawFile] = useState(() => {
     const ts = fileTimestamp(new Date());
@@ -253,12 +265,14 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
   });
   const procRef = useRef<ChildProcess | null>(null);
   const stoppedRef = useRef(false);
+  const cancelledRef = useRef(false);
   const doneCalledRef = useRef(false);
   const stderrLinesRef = useRef<string[]>([]);
 
-  const stop = () => {
+  const stop = (mode: "stop" | "cancel") => {
     if (stoppedRef.current) return;
     stoppedRef.current = true;
+    cancelledRef.current = mode === "cancel";
     const proc = procRef.current;
     if (proc) {
       proc.stdin?.write("q");
@@ -301,6 +315,9 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
 
     proc.stderr?.on("data", (chunk: Buffer | string) => {
       const text = String(chunk);
+      setAudioLevel((previous) =>
+        deriveAudioLevelFromFfmpegOutput(text, previous),
+      );
       const lines = text
         .split(/\r?\n/)
         .map((line) => line.trim())
@@ -316,6 +333,23 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
       if (doneCalledRef.current) return;
       doneCalledRef.current = true;
       const durationSec = (Date.now() - startTimeRef.current.getTime()) / 1000;
+      if (cancelledRef.current) {
+        if (fs.existsSync(rawFile)) {
+          try {
+            fs.rmSync(rawFile, { force: true });
+          } catch (_) {
+            /* noop */
+          }
+        }
+        onDone({
+          success: false,
+          rawFile,
+          startTime: startTimeRef.current,
+          durationSec,
+          error: "Aufnahme abgebrochen.",
+        });
+        return;
+      }
       const success = fs.existsSync(rawFile) && fs.statSync(rawFile).size > 0;
       const noisyLine = (line: string): boolean =>
         /^(ffmpeg version|built with|configuration:|lib[a-z]+)/i.test(line);
@@ -353,7 +387,7 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
     });
 
     return () => {
-      if (!stoppedRef.current) stop();
+      if (!stoppedRef.current) stop("cancel");
     };
   }, []);
 
@@ -363,13 +397,27 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => setInputArmed(true), 800);
+    const t = setTimeout(() => setInputArmed(true), 300);
     return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(
+      () => setAudioLevel((level) => Math.max(0, level - 0.04)),
+      100,
+    );
+    return () => clearInterval(t);
   }, []);
 
   useInput((char, key) => {
     if (!inputArmed) return;
-    if (key.escape || char?.toLowerCase() === "q") stop();
+    if (key.return) {
+      stop("stop");
+      return;
+    }
+    if (key.escape || char?.toLowerCase() === "q") {
+      stop("cancel");
+    }
   });
 
   const modeLabel: Record<RecordingMode, string> = {
@@ -412,11 +460,17 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
             {formatDuration(elapsed)}
           </Text>
         </Text>
+        <Text>
+          <Text color="gray">Pegel: </Text>
+          <Text color="green">{renderAudioLevelBars(audioLevel, 24)}</Text>
+        </Text>
         <Text> </Text>
         <Text>
-          <Text color="gray">Esc oder q </Text>
+          <Text color="gray">Enter </Text>
+          <Text color="white">→ Stop</Text>
+          <Text color="gray"> · Esc </Text>
           <Text color="white">
-            {inputArmed ? "→ Stopp" : "→ Stopp (aktiviert …)"}
+            {inputArmed ? "→ Cancel" : "→ Eingabe aktiviert …"}
           </Text>
         </Text>
       </Box>
@@ -810,16 +864,35 @@ interface TranscriptScreenProps {
   filePath: string;
   data: SharedData;
   origin: "record-flow" | "filepick";
+  onOpenSetup: () => void;
   onDone: () => void;
 }
 
-function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenProps) {
+function TranscriptScreen({
+  filePath,
+  data,
+  origin,
+  onOpenSetup,
+  onDone,
+}: TranscriptScreenProps) {
   const spinner = useSpinner();
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
+  const [phase, setPhase] = useState<
+    "uploading" | "transcribing" | "finalizing"
+  >("uploading");
+  const [progress, setProgress] = useState(8);
   const [text, setText] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [remaining, setRemaining] = useState(3);
+  const [errorActionHint, setErrorActionHint] = useState("");
+  const [errorDetails, setErrorDetails] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [retryToken, setRetryToken] = useState(0);
   const doneRef = useRef(false);
+  const outPath = useMemo(
+    () => filePath.replace(/\.(wav|mp3|m4a|ogg|flac)$/i, ".txt"),
+    [filePath],
+  );
 
   const triggerDone = () => {
     if (doneRef.current) return;
@@ -827,53 +900,160 @@ function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenPr
     setTimeout(() => onDone(), 0);
   };
 
+  const copyTextToClipboard = (input: string): void => {
+    if (process.platform === "darwin") {
+      const result = spawnSync("pbcopy", [], {
+        input,
+        encoding: "utf-8",
+      });
+      if (result.status !== 0) {
+        throw new Error(result.stderr || "pbcopy fehlgeschlagen");
+      }
+      return;
+    }
+
+    if (process.platform === "win32") {
+      const result = spawnSync("clip", [], {
+        input,
+        encoding: "utf-8",
+      });
+      if (result.status !== 0) {
+        throw new Error(result.stderr || "clip fehlgeschlagen");
+      }
+      return;
+    }
+
+    const result = spawnSync("xclip", ["-selection", "clipboard"], {
+      input,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(result.stderr || "xclip fehlgeschlagen");
+    }
+  };
+
   useEffect(() => {
-    const apiKey =
-      cliSecretStore.getApiKey() ??
-      data.config.apiKey ??
-      process.env["OPENAI_API_KEY"];
+    doneRef.current = false;
+    setState("loading");
+    setPhase("uploading");
+    setProgress(8);
+    setShowDetails(false);
+    setNotice(undefined);
+    setErrorActionHint("");
+
+    const progressTimer = setInterval(() => {
+      setProgress((current) => {
+        if (current < 35) {
+          setPhase("uploading");
+        } else if (current < 85) {
+          setPhase("transcribing");
+        } else {
+          setPhase("finalizing");
+        }
+        return Math.min(95, current + 3);
+      });
+    }, 180);
+
+    const apiKey = cliSecretStore.getApiKey() ?? process.env["OPENAI_API_KEY"];
     if (!apiKey) {
-      setErrorMsg(
-        "Kein OpenAI API-Key. Einstellungen öffnen oder OPENAI_API_KEY setzen.",
+      clearInterval(progressTimer);
+      const raw =
+        "Kein OpenAI API-Key. Einstellungen öffnen oder OPENAI_API_KEY setzen.";
+      const hint = toActionableTranscribeErrorHint(raw);
+      setErrorMsg(hint.message);
+      setErrorActionHint(hint.action);
+      setErrorDetails(
+        "Kein API-Key im Secret-Store oder in OPENAI_API_KEY gefunden.",
       );
       setState("error");
       return;
     }
     transcribeFile(filePath, apiKey, "de", data.config.baseUrl)
       .then((result) => {
-        const outPath = filePath.replace(/\.(wav|mp3|m4a|ogg|flac)$/i, ".txt");
+        clearInterval(progressTimer);
+        setProgress(100);
+        setPhase("finalizing");
         try {
           fs.writeFileSync(outPath, result, "utf-8");
-        } catch (_) {
-          /* noop */
+        } catch (error) {
+          const raw = `Transkript konnte nicht gespeichert werden: ${(error as Error).message}`;
+          const hint = toActionableTranscribeErrorHint(raw);
+          setErrorMsg(hint.message);
+          setErrorActionHint(hint.action);
+          setErrorDetails((error as Error).stack ?? raw);
+          setState("error");
+          return;
         }
         setText(result);
         setState("done");
       })
       .catch((e: Error) => {
-        setErrorMsg(e.message);
+        clearInterval(progressTimer);
+        const raw = e.message;
+        const hint = toActionableTranscribeErrorHint(raw);
+        setErrorMsg(hint.message);
+        setErrorActionHint(hint.action);
+        setErrorDetails(e.stack ?? raw);
         setState("error");
       });
-  }, []);
 
-  useInput(() => {
-    if (state !== "loading") triggerDone();
+    return () => clearInterval(progressTimer);
+  }, [retryToken]);
+
+  useInput((char, key) => {
+    const input = key.escape ? "esc" : (char ?? "");
+    const command = resolveTranscribeUiCommand(
+      { mode: state, showDetails },
+      input,
+    );
+
+    if (command.type === "none") return;
+
+    if (command.type === "back") {
+      triggerDone();
+      return;
+    }
+
+    if (command.type === "retry") {
+      setRetryToken((value) => value + 1);
+      return;
+    }
+
+    if (command.type === "toggle-details") {
+      setShowDetails((value) => !value);
+      return;
+    }
+
+    if (command.type === "open-setup") {
+      onOpenSetup();
+      return;
+    }
+
+    if (command.type === "copy") {
+      try {
+        copyTextToClipboard(text);
+        setNotice("Transkript in Zwischenablage kopiert.");
+      } catch (error) {
+        setNotice(`Clipboard fehlgeschlagen: ${(error as Error).message}`);
+      }
+      return;
+    }
+
+    if (command.type === "save") {
+      try {
+        fs.writeFileSync(outPath, text, "utf-8");
+        setNotice(`Transkript gespeichert: ${path.basename(outPath)}`);
+      } catch (error) {
+        setNotice(`Speichern fehlgeschlagen: ${(error as Error).message}`);
+      }
+    }
   });
 
-  useEffect(() => {
-    if (state === "loading") return;
-    const t = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          clearInterval(t);
-          triggerDone();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [state]);
+  const progressBar = useMemo(() => {
+    const width = 24;
+    const active = Math.round((progress / 100) * width);
+    return `${"█".repeat(active)}${"░".repeat(width - active)}`;
+  }, [progress]);
 
   if (state === "loading") {
     return (
@@ -887,6 +1067,18 @@ function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenPr
         >
           <Text color="yellow">{spinner} Transkribiere…</Text>
           <Text> </Text>
+          <Text>
+            <Text color="gray">Status: </Text>
+            <Text color="white" bold>
+              {phase.toUpperCase()}
+            </Text>
+          </Text>
+          <Text>
+            <Text color="gray">Progress: </Text>
+            <Text color="cyan">
+              [{progressBar}] {progress}%
+            </Text>
+          </Text>
           <Text color="gray">{path.basename(filePath)}</Text>
         </Box>
       </Box>
@@ -908,12 +1100,19 @@ function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenPr
           </Text>
           <Text> </Text>
           <Text color="gray">{errorMsg}</Text>
+          <Text color="yellow">{errorActionHint}</Text>
+          {showDetails && (
+            <>
+              <Text> </Text>
+              <Text color="gray">Details:</Text>
+              <Text color="gray" dimColor>
+                {errorDetails}
+              </Text>
+            </>
+          )}
         </Box>
         <Text> </Text>
-        <Text color="gray">
-          Zurück ins Menü in <Text color="yellow">{remaining}s</Text> – oder
-          beliebige Taste
-        </Text>
+        <Text color="gray">[r] Retry [d] Details [k] Setup [q] Zurück</Text>
       </Box>
     );
   }
@@ -949,16 +1148,12 @@ function TranscriptScreen({ filePath, data, origin, onDone }: TranscriptScreenPr
           Gespeichert: <Text color="white">{txtFile}</Text>
         </Text>
         {origin === "record-flow" && (
-          <Text color="gray">
-            Flow: Aufnahme → Transkription abgeschlossen
-          </Text>
+          <Text color="gray">Flow: Aufnahme → Transkription abgeschlossen</Text>
         )}
       </Box>
       <Text> </Text>
-      <Text color="gray">
-        Zurück ins Menü in <Text color="yellow">{remaining}s</Text> – oder
-        beliebige Taste
-      </Text>
+      {notice && <Text color="cyan">{notice}</Text>}
+      <Text color="gray">[c] Copy [s] Save [q] Zurück</Text>
     </Box>
   );
 }
@@ -1392,6 +1587,10 @@ interface AppProps {
 function App({ onRequestSetup }: AppProps) {
   const [screen, setScreen] = useState<Screen>({ id: "loading" });
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
+  const [configReturnTarget, setConfigReturnTarget] =
+    useState<ConfigReturnTarget>({
+      id: "menu",
+    });
 
   const reloadData = async (overrideConfig?: Config) => {
     const hasConfig = configExists();
@@ -1441,7 +1640,7 @@ function App({ onRequestSetup }: AppProps) {
             setScreen({ id: "filepick", action: "play" });
           else if (target === "transcribe")
             setScreen({ id: "filepick", action: "transcribe" });
-          else if (target === "config") onRequestSetup();
+          else if (target === "config") setScreen({ id: "config" });
         }}
       />
     );
@@ -1521,6 +1720,25 @@ function App({ onRequestSetup }: AppProps) {
         filePath={screen.filePath}
         origin={screen.origin}
         data={sharedData}
+        onOpenSetup={() => {
+          void buildDiagnoseReport()
+            .then((report) => {
+              process.stderr.write(
+                `[interactive:diagnose] ${JSON.stringify(report)}\n`,
+              );
+            })
+            .catch((error: Error) => {
+              process.stderr.write(
+                `[interactive:diagnose:error] ${error.message}\n`,
+              );
+            });
+          setConfigReturnTarget({
+            id: "transcript",
+            filePath: screen.filePath,
+            origin: screen.origin,
+          });
+          setScreen({ id: "config" });
+        }}
         onDone={() => setScreen({ id: "menu" })}
       />
     );
@@ -1532,7 +1750,8 @@ function App({ onRequestSetup }: AppProps) {
         data={sharedData}
         onDone={async (updated) => {
           await reloadData(updated);
-          setScreen({ id: "menu" });
+          setScreen(configReturnTarget);
+          setConfigReturnTarget({ id: "menu" });
         }}
       />
     );

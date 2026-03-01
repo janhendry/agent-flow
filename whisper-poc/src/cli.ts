@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { diagnoseCommand } from "./commands/diagnose.js";
-import { interactiveCommand } from "./commands/interactive.js";
+import {
+	interactiveCommand,
+	InteractiveCommandError,
+} from "./commands/interactive.js";
 import { recordCommand } from "./commands/record.js";
 import { setupCommand } from "./commands/setup.js";
 import { transcribeCommand } from "./commands/transcribe.js";
@@ -17,7 +20,7 @@ async function runInteractiveCommand(): Promise<void> {
 		await interactiveCommand(
 			{
 				startApp: async () => "open-setup",
-				setupCommand: async () => {},
+				setupCommand: async () => { },
 			},
 			2,
 		);
@@ -35,6 +38,9 @@ program
 		try {
 			await runInteractiveCommand();
 		} catch (error) {
+			if (error instanceof InteractiveCommandError) {
+				emitCliErrorAndExit("interactive", error.code, error.message);
+			}
 			emitCliErrorAndExit(
 				"interactive",
 				"setup-runtime",
@@ -50,6 +56,9 @@ program
 		try {
 			await runInteractiveCommand();
 		} catch (error) {
+			if (error instanceof InteractiveCommandError) {
+				emitCliErrorAndExit("interactive", error.code, error.message);
+			}
 			emitCliErrorAndExit(
 				"interactive",
 				"setup-runtime",

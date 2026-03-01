@@ -70,7 +70,8 @@ test("interactive command: bricht bei zu vielen setup-Weiterleitungen ab", async
 		interactiveCommand(
 			{
 				startApp: async () => "open-setup",
-				setupCommand: async () => {},
+				setupCommand: async () => { },
+				ensureRuntimeReady: async () => { },
 			},
 			2,
 		),

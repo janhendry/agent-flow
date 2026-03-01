@@ -1,6 +1,6 @@
 # Story 2.2: Geführten Record→Transcribe→Success/Error-Flow implementieren
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -32,6 +32,12 @@ so that ich Aufnahme und Transkription mit laufendem Status sicher ausführen ka
   - [x] Unit-/Integrationstests für Transitionen Record→Transcribe→Success/Error
   - [x] Regressionstests für bestehende CLI-Contracts weiter grün halten
   - [x] `npm run verify` erfolgreich
+
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][HIGH] Interactive-Start lieferte bei fehlendem `ffmpeg` keinen spezifischen Fehlercode; Preflight jetzt contract-konform auf `ffmpeg-missing`.
+- [x] [AI-Review][HIGH] Interactive-Transcribe zeigte Success trotz Schreibfehler beim `.txt`-Persistieren; Fehlerpfad jetzt explizit als Error-State.
+- [x] [AI-Review][MEDIUM] Interactive-Transcribe nutzte unsicheren Config-`apiKey`-Fallback; API-Key-Auflösung jetzt nur Secret-Store/Env.
 
 ## Dev Notes
 
@@ -100,10 +106,10 @@ so that ich Aufnahme und Transkription mit laufendem Status sicher ausführen ka
 
 ### References
 
-- Source: _bmad-output/planning-artifacts/epics.md (Story 2.2)
-- Source: _bmad-output/planning-artifacts/prd.md (FR10, FR11, FR12, NFR8, NFR9, NFR10)
-- Source: _bmad-output/planning-artifacts/architecture.md (Core/Adapter-Trennung, Error-Contract)
-- Source: _bmad-output/implementation-artifacts/2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen.md (Previous Story Intelligence)
+- Source: \_bmad-output/planning-artifacts/epics.md (Story 2.2)
+- Source: \_bmad-output/planning-artifacts/prd.md (FR10, FR11, FR12, NFR8, NFR9, NFR10)
+- Source: \_bmad-output/planning-artifacts/architecture.md (Core/Adapter-Trennung, Error-Contract)
+- Source: \_bmad-output/implementation-artifacts/2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen.md (Previous Story Intelligence)
 
 ## Dev Agent Record
 
@@ -118,6 +124,7 @@ GPT-5.3-Codex
 - Guided Flow implementiert: erfolgreicher Record wechselt direkt in Transcribing-Screen und endet deterministisch in Success/Error.
 - Transition-Logik in testbare Hilfsfunktion extrahiert (`interactive-flow.ts`).
 - Testläufe erfolgreich: fokussierte Interactive-Tests, Gesamttestlauf und `npm run verify`.
+- Senior-Code-Review durchgeführt, 3 Findings identifiziert und vollständig behoben.
 
 ### Completion Notes List
 
@@ -126,16 +133,50 @@ GPT-5.3-Codex
 - Transcript-Screens zeigen nun explizite Success-/Error-States mit deterministischer Rückkehr ins Menü (Countdown + Tastatur-Override).
 - Filepick-Transkription bleibt weiterhin unterstützt; Flow-Herkunft wird im Success-State kenntlich gemacht.
 - Neue Unit-Tests sichern die Zustandsübergänge (Record→Transcribe bzw. Record→Error).
+- Review-Hardening: Interactive-Preflight liefert `ffmpeg-missing`, Schreibfehler beim Transkript-Speichern werden als Error-State behandelt, Config-Klartext-API-Key-Fallback entfernt.
 
 ### File List
 
-- _bmad-output/implementation-artifacts/2-2-gefuehrten-record-transcribe-success-error-flow-implementieren.md
-- _bmad-output/implementation-artifacts/sprint-status.yaml
+- \_bmad-output/implementation-artifacts/2-2-gefuehrten-record-transcribe-success-error-flow-implementieren.md
+- \_bmad-output/implementation-artifacts/sprint-status.yaml
 - whisper-poc/src/app.tsx
+- whisper-poc/src/cli.ts
 - whisper-poc/src/commands/interactive-flow.ts
 - whisper-poc/src/commands/interactive-flow.test.ts
+- whisper-poc/src/commands/interactive.ts
+- whisper-poc/src/commands/interactive.test.ts
+- whisper-poc/src/commands/interactive-cli.integration.test.ts
 
 ### Change Log
 
 - 2026-03-01: Story 2.2 aus Backlog erzeugt, mit umfassendem Dev-Kontext angereichert und auf `in-progress` gesetzt.
 - 2026-03-01: Story 2.2 implementiert (geführter Record→Transcribe-Flow, deterministische Success/Error-Screens, neue Transition-Tests) und auf `review` gesetzt.
+- 2026-03-01: Senior-Code-Review abgeschlossen; 3 Findings behoben (interactive-ffmpeg-preflight, persistenter Write-Error-Path, API-Key-Fallback-Härtung), Tests/Verify erneut grün und Story auf `done` gesetzt.
+
+## Senior Developer Review (AI)
+
+### Review Outcome
+
+Approve
+
+### Review Date
+
+2026-03-01
+
+### Summary
+
+- Scope geprüft: `whisper-poc/src/app.tsx`, `whisper-poc/src/cli.ts`, `whisper-poc/src/commands/interactive*.ts`.
+- AC-Abdeckung bestätigt: geführter Record→Transcribe-Übergang, verständlicher Transcribing-Status und deterministische Success/Error-Abschlüsse vorhanden.
+- Git-vs-Story geprüft: relevante Source-Dateien und Testdateien dokumentiert.
+
+### Findings
+
+- [x] [HIGH] Fehlender spezifischer `ffmpeg`-Fehlercode im Interactive-Preflight.
+- [x] [HIGH] Schreibfehler bei Transkript-Persistenz wurde als stiller Success behandelt.
+- [x] [MEDIUM] Unsicherer API-Key-Fallback auf Klartext-Config im Interactive-Transcribe.
+
+### Action Items
+
+- [x] Interactive-Preflight mit `InteractiveCommandError("ffmpeg-missing", ...)` ergänzt.
+- [x] Transkript-Schreibfehler in `TranscriptScreen` auf Error-State gemappt.
+- [x] API-Key-Auflösung im Interactive-Transcribe auf Secret-Store/Env begrenzt.
