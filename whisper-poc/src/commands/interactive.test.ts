@@ -10,7 +10,15 @@ test("interactive menu: enthält erwartete Hauptmenü-Einträge in stabiler Reih
 	const items = getInteractiveMainMenuItems();
 	assert.deepEqual(
 		items.map((item) => item.value),
-		["record", "play", "transcribe", "config", "exit"],
+		[
+			"record",
+			"play",
+			"transcribe",
+			"history",
+			"capabilities",
+			"config",
+			"exit",
+		],
 	);
 	assert.equal(items[0]?.label.includes("Aufnahme"), true);
 	assert.equal(items[2]?.label.includes("Transkribieren"), true);
@@ -23,8 +31,10 @@ test("interactive menu: Validierung schlägt bei doppeltem Eintrag fehl", () => 
 			{ label: "B", value: "record" },
 			{ label: "C", value: "play" },
 			{ label: "D", value: "transcribe" },
-			{ label: "E", value: "config" },
-			{ label: "F", value: "exit" },
+			{ label: "E", value: "history" },
+			{ label: "F", value: "capabilities" },
+			{ label: "G", value: "config" },
+			{ label: "H", value: "exit" },
 		]),
 	);
 });

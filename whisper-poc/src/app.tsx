@@ -12,6 +12,7 @@ import {
   type InteractiveMenuTarget,
 } from "./commands/interactive-menu.js";
 import { resolvePostRecordingScreen } from "./commands/interactive-flow.js";
+import { resolveRecordModePreflightDecision } from "./commands/interactive-record-mode.js";
 import {
   deriveAudioLevelFromFfmpegOutput,
   renderAudioLevelBars,
@@ -27,6 +28,7 @@ import {
 import { AudioDevice, Config, RecordingMode } from "./types.js";
 import { createCliSecretStore } from "./adapters/cli/secret-store.adapter.js";
 import {
+  buildSystemAudioMissingHint,
   buildFfmpegArgs,
   checkFfmpeg,
   findSystemAudioDevice,
@@ -37,6 +39,13 @@ import {
 } from "./utils/audio.js";
 import { configExists, loadConfig, saveConfig } from "./utils/config.js";
 import { transcribeFile } from "./utils/whisper.js";
+import { applyInteractivePostProcessing } from "./commands/interactive-postprocess.js";
+import {
+  cleanupInteractiveHistoryArtifacts,
+  deleteInteractiveHistoryEntry,
+  listInteractiveHistory,
+  readInteractiveHistoryContent,
+} from "./commands/interactive-history.js";
 
 // ── Typen ──────────────────────────────────────────────────────────────────
 
@@ -48,13 +57,22 @@ interface SelectItem {
 type Screen =
   | { id: "loading" }
   | { id: "menu" }
+  | { id: "record-mode" }
   | { id: "recording" }
   | { id: "naming"; rawFile: string; startTime: Date; durationSec: number }
   | { id: "summary"; filePath: string; durationSec: number; error?: string }
   | { id: "filepick"; action: "play" | "transcribe" }
   | { id: "playing"; filePath: string }
   | { id: "transcript"; filePath: string; origin: "record-flow" | "filepick" }
+  | { id: "capabilities" }
+  | { id: "history" }
+  | { id: "history-detail"; filePath: string }
   | { id: "config" };
+
+interface InteractiveCapabilityOptions {
+  llmEnabled: boolean;
+  glossaryText: string;
+}
 
 export type AppExitReason = "exit" | "open-setup";
 
@@ -110,6 +128,38 @@ function useSpinner(): string {
   return frames[frame];
 }
 
+function copyTextToClipboard(input: string): void {
+  if (process.platform === "darwin") {
+    const result = spawnSync("pbcopy", [], {
+      input,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(result.stderr || "pbcopy fehlgeschlagen");
+    }
+    return;
+  }
+
+  if (process.platform === "win32") {
+    const result = spawnSync("clip", [], {
+      input,
+      encoding: "utf-8",
+    });
+    if (result.status !== 0) {
+      throw new Error(result.stderr || "clip fehlgeschlagen");
+    }
+    return;
+  }
+
+  const result = spawnSync("xclip", ["-selection", "clipboard"], {
+    input,
+    encoding: "utf-8",
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || "xclip fehlgeschlagen");
+  }
+}
+
 // ── Inline-Texteingabe ─────────────────────────────────────────────────────
 
 interface InlineTextInputProps {
@@ -128,7 +178,7 @@ function InlineTextInput({
   onCancel,
   placeholder,
   password,
-}: InlineTextInputProps) {
+}: Readonly<InlineTextInputProps>) {
   useInput((char, key) => {
     if (key.return) {
       onSubmit?.();
@@ -177,7 +227,7 @@ interface MenuScreenProps {
   onNavigate: (target: InteractiveMenuTarget) => void;
 }
 
-function MenuScreen({ data, onNavigate }: MenuScreenProps) {
+function MenuScreen({ data, onNavigate }: Readonly<MenuScreenProps>) {
   const { exit } = useApp();
 
   const modeLabel: Record<RecordingMode, string> = {
@@ -206,9 +256,7 @@ function MenuScreen({ data, onNavigate }: MenuScreenProps) {
         <Text>
           {"  "}
           <Text color="gray">Modus: </Text>
-          <Text color="white">
-            {modeLabel[data.config.mode as RecordingMode]}
-          </Text>
+          <Text color="white">{modeLabel[data.config.mode]}</Text>
         </Text>
         <Text>
           {"  "}
@@ -232,10 +280,7 @@ function MenuScreen({ data, onNavigate }: MenuScreenProps) {
         items={items}
         onSelect={(item: SelectItem) => {
           if (item.value === "exit") exit();
-          else
-            onNavigate(
-              item.value as "record" | "play" | "transcribe" | "config",
-            );
+          else onNavigate(item.value as InteractiveMenuTarget);
         }}
       />
     </Box>
@@ -246,6 +291,7 @@ function MenuScreen({ data, onNavigate }: MenuScreenProps) {
 
 interface RecordingScreenProps {
   data: SharedData;
+  recordingMode: RecordingMode;
   onDone: (result: {
     success: boolean;
     rawFile: string;
@@ -255,7 +301,11 @@ interface RecordingScreenProps {
   }) => void;
 }
 
-function RecordingScreen({ data, onDone }: RecordingScreenProps) {
+function RecordingScreen({
+  data,
+  recordingMode,
+  onDone,
+}: Readonly<RecordingScreenProps>) {
   const [elapsed, setElapsed] = useState(0);
   const [inputArmed, setInputArmed] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
@@ -280,8 +330,10 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
       setTimeout(() => {
         try {
           proc.kill("SIGTERM");
-        } catch (_) {
-          /* noop */
+        } catch (error) {
+          process.stderr.write(
+            `[interactive:recording:warn] kill failed: ${(error as Error).message}\n`,
+          );
         }
       }, 400);
     }
@@ -294,7 +346,7 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
     let args: string[];
     try {
       args = buildFfmpegArgs(
-        data.config.mode as RecordingMode,
+        recordingMode,
         data.micDevice,
         data.systemDevice,
         rawFile,
@@ -338,8 +390,10 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
         if (fs.existsSync(rawFile)) {
           try {
             fs.rmSync(rawFile, { force: true });
-          } catch (_) {
-            /* noop */
+          } catch (error) {
+            process.stderr.write(
+              `[interactive:recording:warn] cleanup failed: ${(error as Error).message}\n`,
+            );
           }
         }
         onDone({
@@ -370,11 +424,11 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
         /error opening input/i,
         /immediate exit requested/i,
       ];
+      const reversedRelevant = [...relevant].reverse();
       const hint =
-        [...relevant]
-          .reverse()
-          .find((line) => specificErrorPatterns.some((rx) => rx.test(line))) ??
-        relevant[relevant.length - 1];
+        reversedRelevant.find((line) =>
+          specificErrorPatterns.some((rx) => rx.test(line)),
+        ) ?? relevant.at(-1);
       onDone({
         success,
         rawFile,
@@ -445,9 +499,7 @@ function RecordingScreen({ data, onDone }: RecordingScreenProps) {
         <Text> </Text>
         <Text>
           <Text color="gray">Modus: </Text>
-          <Text color="cyan">
-            {modeLabel[data.config.mode as RecordingMode]}
-          </Text>
+          <Text color="cyan">{modeLabel[recordingMode]}</Text>
         </Text>
         <Text>
           <Text color="gray">Temp: </Text>
@@ -495,15 +547,15 @@ function NamingScreen({
   durationSec,
   outputDir,
   onDone,
-}: NamingScreenProps) {
+}: Readonly<NamingScreenProps>) {
   const [name, setName] = useState("");
   const ts = fileTimestamp(startTime);
 
   const previewName = useMemo(() => {
     const slug = name
       .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[/\\:*?"<>|]/g, "");
+      .replaceAll(/\s+/g, "_")
+      .replaceAll(/[/\\:*?"<>|]/g, "");
     return slug ? `${ts}_${slug}.wav` : `${ts}.wav`;
   }, [name, ts]);
 
@@ -511,8 +563,10 @@ function NamingScreen({
     const newPath = path.join(outputDir, previewName);
     try {
       if (fs.existsSync(rawFile)) fs.renameSync(rawFile, newPath);
-    } catch (_) {
-      /* keep rawFile on error */
+    } catch (error) {
+      process.stderr.write(
+        `[interactive:naming:warn] rename failed: ${(error as Error).message}\n`,
+      );
     }
     const finalPath = fs.existsSync(newPath) ? newPath : rawFile;
     onDone(finalPath, durationSec);
@@ -593,7 +647,7 @@ function SummaryScreen({
   durationSec,
   error,
   onBack,
-}: SummaryScreenProps) {
+}: Readonly<SummaryScreenProps>) {
   const [remaining, setRemaining] = useState(3);
   const doneRef = useRef(false);
 
@@ -691,7 +745,7 @@ function FilePickScreen({
   outputDir,
   onPick,
   onBack,
-}: FilePickScreenProps) {
+}: Readonly<FilePickScreenProps>) {
   const [filter, setFilter] = useState("");
   const [cursor, setCursor] = useState(0);
 
@@ -741,7 +795,6 @@ function FilePickScreen({
     }
     if (char && !key.ctrl && !key.meta) {
       setFilter((f) => f + char);
-      return;
     }
   });
 
@@ -811,7 +864,7 @@ interface PlayingScreenProps {
   onDone: () => void;
 }
 
-function PlayingScreen({ filePath, onDone }: PlayingScreenProps) {
+function PlayingScreen({ filePath, onDone }: Readonly<PlayingScreenProps>) {
   const spinner = useSpinner();
   const procRef = useRef<ChildProcess | null>(null);
 
@@ -822,8 +875,10 @@ function PlayingScreen({ filePath, onDone }: PlayingScreenProps) {
     return () => {
       try {
         procRef.current?.kill();
-      } catch (_) {
-        /* noop */
+      } catch (error) {
+        process.stderr.write(
+          `[interactive:playback:warn] stop failed: ${(error as Error).message}\n`,
+        );
       }
     };
   }, []);
@@ -831,8 +886,10 @@ function PlayingScreen({ filePath, onDone }: PlayingScreenProps) {
   useInput(() => {
     try {
       procRef.current?.kill();
-    } catch (_) {
-      /* noop */
+    } catch (error) {
+      process.stderr.write(
+        `[interactive:playback:warn] cancel failed: ${(error as Error).message}\n`,
+      );
     }
     onDone();
   });
@@ -865,6 +922,7 @@ interface TranscriptScreenProps {
   filePath: string;
   data: SharedData;
   origin: "record-flow" | "filepick";
+  capabilityOptions: InteractiveCapabilityOptions;
   onOpenSetup: () => void;
   onDone: () => void;
 }
@@ -873,9 +931,10 @@ function TranscriptScreen({
   filePath,
   data,
   origin,
+  capabilityOptions,
   onOpenSetup,
   onDone,
-}: TranscriptScreenProps) {
+}: Readonly<TranscriptScreenProps>) {
   const spinner = useSpinner();
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [phase, setPhase] = useState<
@@ -899,38 +958,6 @@ function TranscriptScreen({
     if (doneRef.current) return;
     doneRef.current = true;
     setTimeout(() => onDone(), 0);
-  };
-
-  const copyTextToClipboard = (input: string): void => {
-    if (process.platform === "darwin") {
-      const result = spawnSync("pbcopy", [], {
-        input,
-        encoding: "utf-8",
-      });
-      if (result.status !== 0) {
-        throw new Error(result.stderr || "pbcopy fehlgeschlagen");
-      }
-      return;
-    }
-
-    if (process.platform === "win32") {
-      const result = spawnSync("clip", [], {
-        input,
-        encoding: "utf-8",
-      });
-      if (result.status !== 0) {
-        throw new Error(result.stderr || "clip fehlgeschlagen");
-      }
-      return;
-    }
-
-    const result = spawnSync("xclip", ["-selection", "clipboard"], {
-      input,
-      encoding: "utf-8",
-    });
-    if (result.status !== 0) {
-      throw new Error(result.stderr || "xclip fehlgeschlagen");
-    }
   };
 
   useEffect(() => {
@@ -970,12 +997,19 @@ function TranscriptScreen({
       return;
     }
     transcribeFile(filePath, apiKey, "de", data.config.baseUrl)
-      .then((result) => {
+      .then(async (result) => {
         clearInterval(progressTimer);
         setProgress(100);
         setPhase("finalizing");
+        const postProcessed = await applyInteractivePostProcessing(result, {
+          llmEnabled: capabilityOptions.llmEnabled,
+          glossaryText: capabilityOptions.glossaryText,
+          apiKey,
+          baseUrl: data.config.baseUrl,
+        });
+        const finalText = postProcessed.text;
         try {
-          fs.writeFileSync(outPath, result, "utf-8");
+          fs.writeFileSync(outPath, finalText, "utf-8");
         } catch (error) {
           const raw = `Transkript konnte nicht gespeichert werden: ${(error as Error).message}`;
           const hint = toActionableTranscribeErrorHint(raw);
@@ -985,7 +1019,13 @@ function TranscriptScreen({
           setState("error");
           return;
         }
-        setText(result);
+        setText(finalText);
+        if (postProcessed.usedLlm) {
+          setNotice("LLM-Post-Processing angewendet.");
+        }
+        if (postProcessed.warnings.length > 0) {
+          setNotice(postProcessed.warnings[0]);
+        }
         setState("done");
       })
       .catch((e: Error) => {
@@ -999,7 +1039,14 @@ function TranscriptScreen({
       });
 
     return () => clearInterval(progressTimer);
-  }, [retryToken]);
+  }, [
+    retryToken,
+    capabilityOptions.glossaryText,
+    capabilityOptions.llmEnabled,
+    data.config.baseUrl,
+    filePath,
+    outPath,
+  ]);
 
   useInput((char, key) => {
     const input = key.escape ? "esc" : (char ?? "");
@@ -1159,6 +1206,308 @@ function TranscriptScreen({
   );
 }
 
+// ── Screen: Record-Mode Auswahl ──────────────────────────────────────────
+
+interface RecordModeScreenProps {
+  selectedMode: RecordingMode;
+  onSelect: (mode: RecordingMode) => void;
+  onBack: () => void;
+}
+
+function RecordModeScreen({
+  selectedMode,
+  onSelect,
+  onBack,
+}: Readonly<RecordModeScreenProps>) {
+  const items: SelectItem[] = [
+    { label: "🎙  Nur Mikrofon", value: "mic" },
+    { label: "🔊  Nur System-Audio", value: "system" },
+    { label: "🎚  Mikrofon + System-Audio", value: "both" },
+    { label: "↩ Zurück", value: "back" },
+  ];
+
+  return (
+    <Box padding={1} flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={2}
+        paddingY={1}
+        flexDirection="column"
+      >
+        <Text color="cyan" bold>
+          🎛 Aufnahme-Modus wählen
+        </Text>
+        <Text color="gray">
+          Aktuell: <Text color="white">{selectedMode}</Text>
+        </Text>
+        <Text> </Text>
+        <SelectInput
+          items={items}
+          onSelect={(item: SelectItem) => {
+            if (item.value === "back") {
+              onBack();
+              return;
+            }
+            onSelect(item.value as RecordingMode);
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}
+
+// ── Screen: Capability-Optionen (LLM/Glossar) ───────────────────────────
+
+interface CapabilityOptionsScreenProps {
+  options: InteractiveCapabilityOptions;
+  onSave: (next: InteractiveCapabilityOptions) => void;
+  onBack: () => void;
+}
+
+function CapabilityOptionsScreen({
+  options,
+  onSave,
+  onBack,
+}: Readonly<CapabilityOptionsScreenProps>) {
+  const [editingGlossary, setEditingGlossary] = useState(false);
+  const [draft, setDraft] = useState<InteractiveCapabilityOptions>(options);
+
+  const items: SelectItem[] = [
+    {
+      label: `🧠 LLM Post-Processing: ${draft.llmEnabled ? "AN" : "AUS"}`,
+      value: "toggle-llm",
+    },
+    { label: "📚 Glossar-Regeln bearbeiten", value: "edit-glossary" },
+    { label: "💾 Speichern und zurück", value: "save" },
+    { label: "↩ Ohne Speichern zurück", value: "back" },
+  ];
+
+  if (editingGlossary) {
+    return (
+      <Box padding={1} flexDirection="column">
+        <Box
+          borderStyle="round"
+          borderColor="cyan"
+          paddingX={2}
+          paddingY={1}
+          flexDirection="column"
+          width={74}
+        >
+          <Text color="cyan" bold>
+            📚 Glossar-Regeln
+          </Text>
+          <Text color="gray">
+            Format je Zeile: falsch=&gt;richtig oder falsch=&gt;richtig
+          </Text>
+          <Text> </Text>
+          <InlineTextInput
+            value={draft.glossaryText}
+            onChange={(value) =>
+              setDraft((current) => ({ ...current, glossaryText: value }))
+            }
+            onSubmit={() => setEditingGlossary(false)}
+            onCancel={() => setEditingGlossary(false)}
+            placeholder="z.B. wiritescript=>whisper-script"
+          />
+          <Text> </Text>
+          <Text color="gray">Enter/Esc → zurück zu Optionen</Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box padding={1} flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={2}
+        paddingY={1}
+        flexDirection="column"
+        width={74}
+      >
+        <Text color="cyan" bold>
+          🧠 Capability-Optionen
+        </Text>
+        <Text color="gray">
+          LLM/Glossar werden im Transkriptions-Flow optional angewendet.
+        </Text>
+        <Text> </Text>
+        <SelectInput
+          items={items}
+          onSelect={(item: SelectItem) => {
+            if (item.value === "toggle-llm") {
+              setDraft((current) => ({
+                ...current,
+                llmEnabled: !current.llmEnabled,
+              }));
+              return;
+            }
+            if (item.value === "edit-glossary") {
+              setEditingGlossary(true);
+              return;
+            }
+            if (item.value === "save") {
+              onSave(draft);
+              return;
+            }
+            onBack();
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}
+
+// ── Screen: History ───────────────────────────────────────────────────────
+
+interface HistoryScreenProps {
+  outputDir: string;
+  onOpenEntry: (filePath: string) => void;
+  onBack: () => void;
+}
+
+function HistoryScreen({
+  outputDir,
+  onOpenEntry,
+  onBack,
+}: Readonly<HistoryScreenProps>) {
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const historyEntries = useMemo(
+    () => listInteractiveHistory(outputDir),
+    [outputDir, notice],
+  );
+
+  const items: SelectItem[] = [
+    ...historyEntries.map((entry) => ({
+      label: `${entry.fileName} (${formatSize(entry.sizeBytes)})`,
+      value: entry.filePath,
+    })),
+    { label: "🧹 Cleanup Audio-Artefakte", value: "__cleanup" },
+    { label: "↩ Zurück", value: "__back" },
+  ];
+
+  return (
+    <Box padding={1} flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={2}
+        paddingY={1}
+        flexDirection="column"
+        width={76}
+      >
+        <Text color="cyan" bold>
+          🗂 History
+        </Text>
+        <Text color="gray">Eintrag wählen für Details/Kopieren/Löschen.</Text>
+        <Text> </Text>
+        {historyEntries.length === 0 && (
+          <Text color="gray">Keine Transkripte gefunden.</Text>
+        )}
+        <SelectInput
+          items={items}
+          onSelect={(item: SelectItem) => {
+            if (item.value === "__back") {
+              onBack();
+              return;
+            }
+            if (item.value === "__cleanup") {
+              const result = cleanupInteractiveHistoryArtifacts(outputDir);
+              setNotice(
+                `Cleanup abgeschlossen: ${result.deletedCount} Datei(en) entfernt.`,
+              );
+              return;
+            }
+            onOpenEntry(item.value);
+          }}
+        />
+        {notice && (
+          <>
+            <Text> </Text>
+            <Text color="cyan">{notice}</Text>
+          </>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+// ── Screen: History-Detail ────────────────────────────────────────────────
+
+interface HistoryDetailScreenProps {
+  filePath: string;
+  onBack: () => void;
+}
+
+function HistoryDetailScreen({
+  filePath,
+  onBack,
+}: Readonly<HistoryDetailScreenProps>) {
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [deleted, setDeleted] = useState(false);
+  const content = useMemo(() => {
+    if (deleted) return "Eintrag gelöscht.";
+    try {
+      return readInteractiveHistoryContent(filePath);
+    } catch (error) {
+      return `Fehler beim Laden: ${(error as Error).message}`;
+    }
+  }, [deleted, filePath]);
+
+  useInput((char, key) => {
+    if (key.escape || char?.toLowerCase() === "q") {
+      onBack();
+      return;
+    }
+
+    if (char?.toLowerCase() === "c") {
+      try {
+        copyTextToClipboard(content);
+        setNotice("In Zwischenablage kopiert.");
+      } catch (error) {
+        setNotice(`Kopieren fehlgeschlagen: ${(error as Error).message}`);
+      }
+      return;
+    }
+
+    if (char?.toLowerCase() === "d") {
+      deleteInteractiveHistoryEntry(filePath);
+      setDeleted(true);
+      setNotice("Eintrag gelöscht.");
+    }
+  });
+
+  const lines = content.split("\n");
+  const preview = lines.slice(0, 40).join("\n");
+  const truncated = lines.length > 40;
+
+  return (
+    <Box padding={1} flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor="cyan"
+        paddingX={2}
+        paddingY={1}
+        flexDirection="column"
+      >
+        <Text color="cyan" bold>
+          📄 {path.basename(filePath)}
+        </Text>
+        <Text> </Text>
+        <Text>{preview}</Text>
+        {truncated && (
+          <Text color="gray">… ({lines.length - 40} weitere Zeilen)</Text>
+        )}
+      </Box>
+      <Text> </Text>
+      {notice && <Text color="cyan">{notice}</Text>}
+      <Text color="gray">[c] Copy [d] Löschen [q] Zurück</Text>
+    </Box>
+  );
+}
+
 // ── Screen: Einstellungen ─────────────────────────────────────────────────
 
 type ConfigStep =
@@ -1175,7 +1524,7 @@ interface ConfigScreenProps {
   onDone: (updated: Config) => void;
 }
 
-function ConfigScreen({ data, onDone }: ConfigScreenProps) {
+function ConfigScreen({ data, onDone }: Readonly<ConfigScreenProps>) {
   const [step, setStep] = useState<ConfigStep>("mode");
   const [draft, setDraft] = useState<Config>({ ...data.config });
   const [apiKey, setApiKey] = useState(
@@ -1585,9 +1934,16 @@ interface AppProps {
   onRequestSetup: () => void;
 }
 
-function App({ onRequestSetup }: AppProps) {
+function App({ onRequestSetup }: Readonly<AppProps>) {
   const [screen, setScreen] = useState<Screen>({ id: "loading" });
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
+  const [sessionRecordingMode, setSessionRecordingMode] =
+    useState<RecordingMode>("mic");
+  const [capabilityOptions, setCapabilityOptions] =
+    useState<InteractiveCapabilityOptions>({
+      llmEnabled: false,
+      glossaryText: "",
+    });
   const [configReturnTarget, setConfigReturnTarget] =
     useState<ConfigReturnTarget>({
       id: "menu",
@@ -1598,10 +1954,12 @@ function App({ onRequestSetup }: AppProps) {
     const config =
       overrideConfig ?? (hasConfig ? loadConfig() : DEFAULT_CONFIG);
     const devices = await listAudioDevices();
-    const configuredSystemDevice =
-      config.systemIndex !== undefined
-        ? devices.find((d) => d.index === config.systemIndex)
-        : undefined;
+    let configuredSystemDevice: AudioDevice | undefined;
+    if (typeof config.systemIndex === "number") {
+      configuredSystemDevice = devices.find(
+        (d) => d.index === config.systemIndex,
+      );
+    }
     const systemDevice =
       configuredSystemDevice ?? findSystemAudioDevice(devices);
     const micDevice = devices.find((d) => d.index === config.micIndex) ?? {
@@ -1612,7 +1970,7 @@ function App({ onRequestSetup }: AppProps) {
       config,
       micDevice,
       systemDevice,
-      hasConfig: overrideConfig != null ? true : hasConfig,
+      hasConfig: Boolean(overrideConfig) || hasConfig,
     });
   };
 
@@ -1629,6 +1987,11 @@ function App({ onRequestSetup }: AppProps) {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!sharedData) return;
+    setSessionRecordingMode(sharedData.config.mode);
+  }, [sharedData]);
+
   if (screen.id === "loading" || !sharedData) return <LoadingScreen />;
 
   if (screen.id === "menu") {
@@ -1636,12 +1999,50 @@ function App({ onRequestSetup }: AppProps) {
       <MenuScreen
         data={sharedData}
         onNavigate={(target) => {
-          if (target === "record") setScreen({ id: "recording" });
+          if (target === "record") setScreen({ id: "record-mode" });
           else if (target === "play")
             setScreen({ id: "filepick", action: "play" });
           else if (target === "transcribe")
             setScreen({ id: "filepick", action: "transcribe" });
+          else if (target === "history") setScreen({ id: "history" });
+          else if (target === "capabilities") setScreen({ id: "capabilities" });
           else if (target === "config") setScreen({ id: "config" });
+        }}
+      />
+    );
+  }
+
+  if (screen.id === "record-mode") {
+    return (
+      <RecordModeScreen
+        selectedMode={sessionRecordingMode}
+        onBack={() => setScreen({ id: "menu" })}
+        onSelect={(mode) => {
+          setSessionRecordingMode(mode);
+          const preflight = resolveRecordModePreflightDecision(
+            mode,
+            sharedData.systemDevice !== undefined,
+          );
+          if (preflight.type === "open-setup") {
+            void buildDiagnoseReport()
+              .then((report) => {
+                process.stderr.write(
+                  `[interactive:diagnose] ${JSON.stringify(report)}\n`,
+                );
+              })
+              .catch((error: Error) => {
+                process.stderr.write(
+                  `[interactive:diagnose:error] ${error.message}\n`,
+                );
+              });
+            process.stderr.write(
+              `[interactive:record-mode:error] ${buildSystemAudioMissingHint()}\n`,
+            );
+            setConfigReturnTarget({ id: "menu" });
+            setScreen({ id: "config" });
+            return;
+          }
+          setScreen({ id: "recording" });
         }}
       />
     );
@@ -1651,6 +2052,7 @@ function App({ onRequestSetup }: AppProps) {
     return (
       <RecordingScreen
         data={sharedData}
+        recordingMode={sessionRecordingMode}
         onDone={(result) => {
           const nextScreen = resolvePostRecordingScreen({
             success: result.success,
@@ -1660,6 +2062,40 @@ function App({ onRequestSetup }: AppProps) {
           });
           setScreen(nextScreen);
         }}
+      />
+    );
+  }
+
+  if (screen.id === "capabilities") {
+    return (
+      <CapabilityOptionsScreen
+        options={capabilityOptions}
+        onSave={(next) => {
+          setCapabilityOptions(next);
+          setScreen({ id: "menu" });
+        }}
+        onBack={() => setScreen({ id: "menu" })}
+      />
+    );
+  }
+
+  if (screen.id === "history") {
+    return (
+      <HistoryScreen
+        outputDir={sharedData.config.outputDir}
+        onOpenEntry={(filePath) =>
+          setScreen({ id: "history-detail", filePath })
+        }
+        onBack={() => setScreen({ id: "menu" })}
+      />
+    );
+  }
+
+  if (screen.id === "history-detail") {
+    return (
+      <HistoryDetailScreen
+        filePath={screen.filePath}
+        onBack={() => setScreen({ id: "history" })}
       />
     );
   }
@@ -1721,6 +2157,7 @@ function App({ onRequestSetup }: AppProps) {
         filePath={screen.filePath}
         origin={screen.origin}
         data={sharedData}
+        capabilityOptions={capabilityOptions}
         onOpenSetup={() => {
           void buildDiagnoseReport()
             .then((report) => {

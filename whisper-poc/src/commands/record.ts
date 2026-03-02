@@ -6,6 +6,7 @@ import path from "path";
 import { AudioDevice, Config, RecordingMode } from "../types.js";
 import {
 	buildFfmpegArgs,
+	buildSystemAudioMissingHint,
 	checkFfmpeg,
 	findSystemAudioDevice,
 	getPlatformInfo,
@@ -367,7 +368,7 @@ export async function recordCommand(options: RecordOptions): Promise<void> {
 	if ((executionOptions.mode === "system" || executionOptions.mode === "both") && !systemDevice) {
 		emitCliError(
 			"system-audio-missing",
-			"Kein System-Audio-Gerät gefunden. Installiere BlackHole (macOS) oder VB-Cable (Windows)",
+			buildSystemAudioMissingHint(),
 		);
 	}
 

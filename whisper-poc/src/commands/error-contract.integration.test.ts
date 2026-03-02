@@ -7,11 +7,22 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 function runCli(args: string[], envOverrides?: NodeJS.ProcessEnv) {
+	const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), "wf-cli-home-"));
 	const cliPath = fileURLToPath(new URL("../cli.js", import.meta.url));
-	return spawnSync(process.execPath, [cliPath, ...args], {
-		encoding: "utf-8",
-		env: { ...process.env, ...envOverrides },
-	});
+	try {
+		return spawnSync(process.execPath, [cliPath, ...args], {
+			encoding: "utf-8",
+			env: {
+				...process.env,
+				HOME: isolatedHome,
+				USERPROFILE: isolatedHome,
+				OPENAI_API_KEY: "",
+				...envOverrides,
+			},
+		});
+	} finally {
+		fs.rmSync(isolatedHome, { recursive: true, force: true });
+	}
 }
 
 function parseErrorEvent(stderr: string) {

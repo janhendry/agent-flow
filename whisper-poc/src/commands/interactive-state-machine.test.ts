@@ -58,3 +58,15 @@ test("interactive keymap: error-screen enthält recovery-aktionen", () => {
 	assert.ok(keymap.includes("open-setup"));
 	assert.ok(keymap.includes("back"));
 });
+
+test("interactive state machine: main-menu enthält history und capability-eintrag", () => {
+	assert.ok(MAIN_MENU_ITEMS.includes("history"));
+	assert.ok(MAIN_MENU_ITEMS.includes("capabilities"));
+});
+
+test("interactive keymap: neue 2.4-screens sind in keymap modelliert", () => {
+	assert.ok(INTERACTIVE_KEYMAP["record-mode"].includes("select"));
+	assert.ok(INTERACTIVE_KEYMAP.capabilities.includes("back"));
+	assert.ok(INTERACTIVE_KEYMAP.history.includes("cleanup"));
+	assert.ok(INTERACTIVE_KEYMAP["history-detail"].includes("delete"));
+});

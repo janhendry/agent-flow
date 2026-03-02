@@ -109,7 +109,7 @@ function audioFormat(): string {
 	return "alsa";
 }
 
-function systemAudioError(): string {
+export function buildSystemAudioMissingHint(): string {
 	if (IS_MAC) {
 		return (
 			"System-Audio-Gerät nicht gefunden.\n" +
@@ -158,7 +158,7 @@ export function buildFfmpegArgs(
 	}
 
 	if (mode === "system") {
-		if (!systemDevice) throw new Error(systemAudioError());
+		if (!systemDevice) throw new Error(buildSystemAudioMissingHint());
 		if (IS_MAC) {
 			// BlackHole kann 64ch liefern → explizit auf Stereo via pan
 			return [
@@ -187,7 +187,7 @@ export function buildFfmpegArgs(
 	}
 
 	// both
-	if (!systemDevice) throw new Error(systemAudioError());
+	if (!systemDevice) throw new Error(buildSystemAudioMissingHint());
 
 	if (IS_MAC) {
 		// BlackHole 64ch → Stereo; Mono-Mic auf beide Kanäle duplizieren

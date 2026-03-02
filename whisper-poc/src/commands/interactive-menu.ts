@@ -2,6 +2,8 @@ export type InteractiveMenuTarget =
 	| "record"
 	| "play"
 	| "transcribe"
+	| "history"
+	| "capabilities"
 	| "config"
 	| "exit";
 
@@ -14,6 +16,8 @@ const REQUIRED_MENU_TARGETS: ReadonlyArray<InteractiveMenuTarget> = [
 	"record",
 	"play",
 	"transcribe",
+	"history",
+	"capabilities",
 	"config",
 	"exit",
 ];
@@ -41,6 +45,8 @@ export function getInteractiveMainMenuItems(): InteractiveMenuItem[] {
 		{ label: "🎙  Aufnahme starten", value: "record" },
 		{ label: "▶   Audio abspielen", value: "play" },
 		{ label: "📝  Transkribieren", value: "transcribe" },
+		{ label: "🗂  History", value: "history" },
+		{ label: "🧠  Capability-Optionen", value: "capabilities" },
 		{ label: "⚙   Einstellungen", value: "config" },
 		{ label: "🚪  Beenden", value: "exit" },
 	];

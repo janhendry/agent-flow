@@ -1,9 +1,13 @@
 export type InteractiveScreenId =
 	| "main-menu"
+	| "record-mode"
 	| "recording"
 	| "transcribing"
 	| "success"
 	| "error"
+	| "capabilities"
+	| "history"
+	| "history-detail"
 	| "setup-diagnostics";
 
 export type InteractiveActionId =
@@ -19,6 +23,8 @@ export type InteractiveActionId =
 	| "run-diagnostics"
 	| "copy"
 	| "save"
+	| "delete"
+	| "cleanup"
 	| "quit";
 
 export interface InteractiveState {
@@ -34,8 +40,10 @@ export interface InteractiveTransition {
 
 export const MAIN_MENU_ITEMS = [
 	"record-and-transcribe",
-	"profiles",
+	"play-audio",
+	"transcribe-file",
 	"history",
+	"capabilities",
 	"setup-and-diagnostics",
 	"exit",
 ] as const;
@@ -45,10 +53,14 @@ export const INTERACTIVE_KEYMAP: Record<
 	ReadonlyArray<InteractiveActionId>
 > = {
 	"main-menu": ["move-up", "move-down", "select", "quit"],
+	"record-mode": ["move-up", "move-down", "select", "back", "quit"],
 	recording: ["stop-recording", "cancel-recording", "quit"],
 	transcribing: ["quit"],
 	success: ["copy", "save", "back", "quit"],
 	error: ["retry", "show-details", "open-setup", "back", "quit"],
+	capabilities: ["move-up", "move-down", "select", "back", "quit"],
+	history: ["move-up", "move-down", "select", "cleanup", "back", "quit"],
+	"history-detail": ["copy", "delete", "back", "quit"],
 	"setup-diagnostics": ["run-diagnostics", "back", "quit"],
 };
 
