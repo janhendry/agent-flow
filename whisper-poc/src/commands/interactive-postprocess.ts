@@ -5,6 +5,7 @@ export interface InteractivePostProcessOptions {
 	glossaryText: string;
 	apiKey: string | undefined;
 	baseUrl: string | undefined;
+	llmModel?: string;
 }
 
 export interface InteractivePostProcessResult {
@@ -95,7 +96,7 @@ export async function applyInteractivePostProcessing(
 				: "Keine Glossary-Regeln gesetzt.";
 
 		const response = await client.chat.completions.create({
-			model: "gpt-4o-mini",
+			model: options.llmModel ?? process.env["WHISPER_LLM_MODEL"] ?? "gpt-4o-mini",
 			temperature: 0,
 			messages: [
 				{
@@ -126,12 +127,12 @@ export async function applyInteractivePostProcessing(
 			usedLlm: true,
 			warnings: [],
 		};
-	} catch (error) {
+	} catch {
 		return {
 			text: glossaryAppliedText,
 			usedLlm: false,
 			warnings: [
-				`LLM-Post-Processing fehlgeschlagen, Fallback auf Transkript mit Glossary-Regeln: ${(error as Error).message}`,
+				"LLM-Post-Processing fehlgeschlagen. Fallback auf Transkript mit Glossary-Regeln.",
 			],
 		};
 	}

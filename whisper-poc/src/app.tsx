@@ -168,7 +168,11 @@ interface InlineTextInputProps {
   onSubmit?: () => void;
   onCancel?: () => void;
   placeholder?: string;
+  /** `password` und `multiline` schließen sich gegenseitig aus. Nie beide gleichzeitig setzen. */
   password?: boolean;
+  /** `multiline` und `password` schließen sich gegenseitig aus. Nie beide gleichzeitig setzen.
+   * Im Multiline-Modus: Enter = neue Zeile, Esc = Submit (onSubmit). onCancel wird nicht aufgerufen. */
+  multiline?: boolean;
 }
 
 function InlineTextInput({
@@ -178,14 +182,23 @@ function InlineTextInput({
   onCancel,
   placeholder,
   password,
+  multiline,
 }: Readonly<InlineTextInputProps>) {
   useInput((char, key) => {
     if (key.return) {
-      onSubmit?.();
+      if (multiline) {
+        onChange(value + "\n");
+      } else {
+        onSubmit?.();
+      }
       return;
     }
     if (key.escape) {
-      onCancel?.();
+      if (multiline) {
+        onSubmit?.();
+      } else {
+        onCancel?.();
+      }
       return;
     }
     if (key.backspace || key.delete) {
@@ -195,6 +208,27 @@ function InlineTextInput({
     if (char && !key.ctrl && !key.meta) onChange(value + char);
   });
   const display = password ? "•".repeat(value.length) : value;
+  if (multiline) {
+    const lines = display ? display.split("\n") : [];
+    return (
+      <Box flexDirection="column">
+        {lines.length === 0 && (
+          <Text>
+            <Text color="gray">{placeholder ?? ""}</Text>
+            <Text backgroundColor="cyan" color="black">{" "}</Text>
+          </Text>
+        )}
+        {lines.map((line, i) => (
+          <Text key={`line-${i}`}>
+            <Text color="white">{line}</Text>
+            {i === lines.length - 1 && (
+              <Text backgroundColor="cyan" color="black">{" "}</Text>
+            )}
+          </Text>
+        ))}
+      </Box>
+    );
+  }
   return (
     <Text>
       {value ? (
@@ -1006,6 +1040,7 @@ function TranscriptScreen({
           glossaryText: capabilityOptions.glossaryText,
           apiKey,
           baseUrl: data.config.baseUrl,
+          llmModel: data.config.llmModel,
         });
         const finalText = postProcessed.text;
         try {
@@ -1298,7 +1333,7 @@ function CapabilityOptionsScreen({
             📚 Glossar-Regeln
           </Text>
           <Text color="gray">
-            Format je Zeile: falsch=&gt;richtig oder falsch=&gt;richtig
+            Format je Zeile: falsch=&gt;richtig · Esc = Fertig · Enter = neue Zeile
           </Text>
           <Text> </Text>
           <InlineTextInput
@@ -1307,11 +1342,11 @@ function CapabilityOptionsScreen({
               setDraft((current) => ({ ...current, glossaryText: value }))
             }
             onSubmit={() => setEditingGlossary(false)}
-            onCancel={() => setEditingGlossary(false)}
             placeholder="z.B. wiritescript=>whisper-script"
+            multiline
           />
           <Text> </Text>
-          <Text color="gray">Enter/Esc → zurück zu Optionen</Text>
+          <Text color="gray">Esc → zurück zu Optionen | Enter → neue Zeile</Text>
         </Box>
       </Box>
     );
@@ -1374,9 +1409,10 @@ function HistoryScreen({
   onBack,
 }: Readonly<HistoryScreenProps>) {
   const [notice, setNotice] = useState<string | undefined>(undefined);
+  const [refreshToken, setRefreshToken] = useState(0);
   const historyEntries = useMemo(
     () => listInteractiveHistory(outputDir),
-    [outputDir, notice],
+    [outputDir, refreshToken],
   );
 
   const items: SelectItem[] = [
@@ -1414,10 +1450,12 @@ function HistoryScreen({
               return;
             }
             if (item.value === "__cleanup") {
+              setNotice(undefined);
               const result = cleanupInteractiveHistoryArtifacts(outputDir);
               setNotice(
                 `Cleanup abgeschlossen: ${result.deletedCount} Datei(en) entfernt.`,
               );
+              setRefreshToken((t) => t + 1);
               return;
             }
             onOpenEntry(item.value);
@@ -1463,6 +1501,7 @@ function HistoryDetailScreen({
     }
 
     if (char?.toLowerCase() === "c") {
+      if (deleted) return;
       try {
         copyTextToClipboard(content);
         setNotice("In Zwischenablage kopiert.");
@@ -1563,6 +1602,8 @@ function ConfigScreen({ data, onDone }: Readonly<ConfigScreenProps>) {
       } else {
         cliSecretStore.clearApiKey();
       }
+      // ...draft enthält bereits llmEnabled, glossaryText und llmModel;
+      // apiKey/baseUrl/outputDir werden unten explizit überschrieben.
       const final: Config = {
         ...draft,
         apiKey: undefined,
@@ -1944,6 +1985,7 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
       llmEnabled: false,
       glossaryText: "",
     });
+  const capabilityInitializedRef = useRef(false);
   const [configReturnTarget, setConfigReturnTarget] =
     useState<ConfigReturnTarget>({
       id: "menu",
@@ -1990,6 +2032,15 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
   useEffect(() => {
     if (!sharedData) return;
     setSessionRecordingMode(sharedData.config.mode);
+  }, [sharedData]);
+
+  useEffect(() => {
+    if (!sharedData || capabilityInitializedRef.current) return;
+    capabilityInitializedRef.current = true;
+    setCapabilityOptions({
+      llmEnabled: sharedData.config.llmEnabled ?? false,
+      glossaryText: sharedData.config.glossaryText ?? "",
+    });
   }, [sharedData]);
 
   if (screen.id === "loading" || !sharedData) return <LoadingScreen />;
@@ -2072,6 +2123,16 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
         options={capabilityOptions}
         onSave={(next) => {
           setCapabilityOptions(next);
+          const updatedConfig: Config = {
+            ...sharedData.config,
+            llmEnabled: next.llmEnabled,
+            glossaryText: next.glossaryText,
+          };
+          saveConfig(updatedConfig);
+          // Ref zurücksetzen, damit ein nachfolgendes sharedData-Update
+          // capabilityOptions korrekt neu initialisiert.
+          capabilityInitializedRef.current = false;
+          void reloadData(updatedConfig);
           setScreen({ id: "menu" });
         }}
         onBack={() => setScreen({ id: "menu" })}

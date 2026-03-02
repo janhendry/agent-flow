@@ -14,4 +14,7 @@ export interface Config {
 	outputDir: string;
 	apiKey?: string;
 	baseUrl?: string;
+	llmEnabled?: boolean;
+	glossaryText?: string;
+	llmModel?: string;
 }

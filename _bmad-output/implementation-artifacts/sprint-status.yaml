@@ -53,7 +53,7 @@ development_status:
   2-1-main-menu-und-keyboard-navigation-fuer-interactive-cli-umsetzen: done
   2-2-gefuehrten-record-transcribe-success-error-flow-implementieren: done
   2-3-recovery-und-diagnose-aktionen-im-fehlerkontext-anbieten: done
-  2-4-erweiterte-capability-flows-dual-audio-llm-glossar-history-integrieren: in-progress
+  2-4-erweiterte-capability-flows-dual-audio-llm-glossar-history-integrieren: done
   epic-2-retrospective: optional
 
   epic-3: backlog
