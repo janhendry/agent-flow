@@ -12,6 +12,7 @@ test("interactive menu: enthält erwartete Hauptmenü-Einträge in stabiler Reih
 		items.map((item) => item.value),
 		[
 			"record",
+			"record-only",
 			"play",
 			"transcribe",
 			"history",
@@ -21,7 +22,7 @@ test("interactive menu: enthält erwartete Hauptmenü-Einträge in stabiler Reih
 		],
 	);
 	assert.equal(items[0]?.label.includes("Aufnahme"), true);
-	assert.equal(items[2]?.label.includes("Transkribieren"), true);
+	assert.equal(items[3]?.label.includes("Transkribieren"), true);
 });
 
 test("interactive menu: Validierung schlägt bei doppeltem Eintrag fehl", () => {
@@ -29,12 +30,13 @@ test("interactive menu: Validierung schlägt bei doppeltem Eintrag fehl", () => 
 		validateInteractiveMainMenuItems([
 			{ label: "A", value: "record" },
 			{ label: "B", value: "record" },
-			{ label: "C", value: "play" },
-			{ label: "D", value: "transcribe" },
-			{ label: "E", value: "history" },
-			{ label: "F", value: "capabilities" },
-			{ label: "G", value: "config" },
-			{ label: "H", value: "exit" },
+			{ label: "C", value: "record-only" },
+			{ label: "D", value: "play" },
+			{ label: "E", value: "transcribe" },
+			{ label: "F", value: "history" },
+			{ label: "G", value: "capabilities" },
+			{ label: "H", value: "config" },
+			{ label: "I", value: "exit" },
 		]),
 	);
 });

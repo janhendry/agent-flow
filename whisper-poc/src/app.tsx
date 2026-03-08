@@ -15,6 +15,7 @@ import { resolvePostRecordingScreen } from "./commands/interactive-flow.js";
 import { resolveRecordModePreflightDecision } from "./commands/interactive-record-mode.js";
 import {
   deriveAudioLevelFromFfmpegOutput,
+  createDualLevelParser,
   renderAudioLevelBars,
 } from "./commands/interactive-audio-level.js";
 import { resolveTranscribeUiCommand } from "./commands/interactive-transcribe-ui.js";
@@ -73,6 +74,8 @@ interface InteractiveCapabilityOptions {
   llmEnabled: boolean;
   glossaryText: string;
 }
+
+type RecordWorkflowIntent = "record-and-transcribe" | "record-only";
 
 export type AppExitReason = "exit" | "open-setup";
 
@@ -215,14 +218,18 @@ function InlineTextInput({
         {lines.length === 0 && (
           <Text>
             <Text color="gray">{placeholder ?? ""}</Text>
-            <Text backgroundColor="cyan" color="black">{" "}</Text>
+            <Text backgroundColor="cyan" color="black">
+              {" "}
+            </Text>
           </Text>
         )}
         {lines.map((line, i) => (
           <Text key={`line-${i}`}>
             <Text color="white">{line}</Text>
             {i === lines.length - 1 && (
-              <Text backgroundColor="cyan" color="black">{" "}</Text>
+              <Text backgroundColor="cyan" color="black">
+                {" "}
+              </Text>
             )}
           </Text>
         ))}
@@ -343,6 +350,11 @@ function RecordingScreen({
   const [elapsed, setElapsed] = useState(0);
   const [inputArmed, setInputArmed] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [micLevel, setMicLevel] = useState(0);
+  const [sysLevel, setSysLevel] = useState(0);
+  const dualParserRef = useRef(
+    recordingMode === "both" ? createDualLevelParser() : null,
+  );
   const startTimeRef = useRef<Date>(new Date());
   const [rawFile] = useState(() => {
     const ts = fileTimestamp(new Date());
@@ -402,9 +414,15 @@ function RecordingScreen({
 
     proc.stderr?.on("data", (chunk: Buffer | string) => {
       const text = String(chunk);
-      setAudioLevel((previous) =>
-        deriveAudioLevelFromFfmpegOutput(text, previous),
-      );
+      if (dualParserRef.current) {
+        const { mic, sys } = dualParserRef.current.parse(text);
+        setMicLevel(mic);
+        setSysLevel(sys);
+      } else {
+        setAudioLevel((previous) =>
+          deriveAudioLevelFromFfmpegOutput(text, previous),
+        );
+      }
       const lines = text
         .split(/\r?\n/)
         .map((line) => line.trim())
@@ -491,10 +509,14 @@ function RecordingScreen({
   }, []);
 
   useEffect(() => {
-    const t = setInterval(
-      () => setAudioLevel((level) => Math.max(0, level - 0.04)),
-      100,
-    );
+    const t = setInterval(() => {
+      if (dualParserRef.current) {
+        setMicLevel((level) => Math.max(0, level - 0.04));
+        setSysLevel((level) => Math.max(0, level - 0.04));
+      } else {
+        setAudioLevel((level) => Math.max(0, level - 0.04));
+      }
+    }, 100);
     return () => clearInterval(t);
   }, []);
 
@@ -547,10 +569,23 @@ function RecordingScreen({
             {formatDuration(elapsed)}
           </Text>
         </Text>
-        <Text>
-          <Text color="gray">Pegel: </Text>
-          <Text color="green">{renderAudioLevelBars(audioLevel, 24)}</Text>
-        </Text>
+        {recordingMode === "both" ? (
+          <>
+            <Text>
+              <Text color="gray">Pegel Mic: </Text>
+              <Text color="green">{renderAudioLevelBars(micLevel, 24)}</Text>
+            </Text>
+            <Text>
+              <Text color="gray">Pegel Sys: </Text>
+              <Text color="cyan">{renderAudioLevelBars(sysLevel, 24)}</Text>
+            </Text>
+          </>
+        ) : (
+          <Text>
+            <Text color="gray">Pegel: </Text>
+            <Text color="green">{renderAudioLevelBars(audioLevel, 24)}</Text>
+          </Text>
+        )}
         <Text> </Text>
         <Text>
           <Text color="gray">Enter </Text>
@@ -1333,7 +1368,8 @@ function CapabilityOptionsScreen({
             📚 Glossar-Regeln
           </Text>
           <Text color="gray">
-            Format je Zeile: falsch=&gt;richtig · Esc = Fertig · Enter = neue Zeile
+            Format je Zeile: falsch=&gt;richtig · Esc = Fertig · Enter = neue
+            Zeile
           </Text>
           <Text> </Text>
           <InlineTextInput
@@ -1346,7 +1382,9 @@ function CapabilityOptionsScreen({
             multiline
           />
           <Text> </Text>
-          <Text color="gray">Esc → zurück zu Optionen | Enter → neue Zeile</Text>
+          <Text color="gray">
+            Esc → zurück zu Optionen | Enter → neue Zeile
+          </Text>
         </Box>
       </Box>
     );
@@ -1980,6 +2018,8 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
   const [sessionRecordingMode, setSessionRecordingMode] =
     useState<RecordingMode>("mic");
+  const [recordWorkflowIntent, setRecordWorkflowIntent] =
+    useState<RecordWorkflowIntent>("record-and-transcribe");
   const [capabilityOptions, setCapabilityOptions] =
     useState<InteractiveCapabilityOptions>({
       llmEnabled: false,
@@ -2050,8 +2090,13 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
       <MenuScreen
         data={sharedData}
         onNavigate={(target) => {
-          if (target === "record") setScreen({ id: "record-mode" });
-          else if (target === "play")
+          if (target === "record") {
+            setRecordWorkflowIntent("record-and-transcribe");
+            setScreen({ id: "record-mode" });
+          } else if (target === "record-only") {
+            setRecordWorkflowIntent("record-only");
+            setScreen({ id: "record-mode" });
+          } else if (target === "play")
             setScreen({ id: "filepick", action: "play" });
           else if (target === "transcribe")
             setScreen({ id: "filepick", action: "transcribe" });
@@ -2105,6 +2150,15 @@ function App({ onRequestSetup }: Readonly<AppProps>) {
         data={sharedData}
         recordingMode={sessionRecordingMode}
         onDone={(result) => {
+          if (recordWorkflowIntent === "record-only" && result.success) {
+            setScreen({
+              id: "naming",
+              rawFile: result.rawFile,
+              startTime: new Date(),
+              durationSec: result.durationSec,
+            });
+            return;
+          }
           const nextScreen = resolvePostRecordingScreen({
             success: result.success,
             rawFile: result.rawFile,

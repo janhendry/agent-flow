@@ -191,6 +191,7 @@ export function buildFfmpegArgs(
 
 	if (IS_MAC) {
 		// BlackHole 64ch → Stereo; Mono-Mic auf beide Kanäle duplizieren
+		// Meter in jedem Branch VOR dem Mix → separate Pegel für Mic und System
 		return [
 			"-f",
 			fmt,
@@ -201,9 +202,9 @@ export function buildFfmpegArgs(
 			"-i",
 			deviceInput(systemDevice),
 			"-filter_complex",
-			"[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0[mic];" +
-			"[1:a]aresample=44100,pan=stereo|c0=c0|c1=c1[sys];" +
-			`[mic][sys]amix=inputs=2:duration=first:dropout_transition=3[mix];[mix]${meter}[out]`,
+			`[0:a]aresample=44100,pan=stereo|c0=c0|c1=c0,${meter}[mic];` +
+			`[1:a]aresample=44100,pan=stereo|c0=c0|c1=c1,${meter}[sys];` +
+			"[mic][sys]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]",
 			"-map",
 			"[out]",
 			...commonOut,
@@ -211,6 +212,7 @@ export function buildFfmpegArgs(
 	}
 
 	// Windows: dshow liefert korrekte Kanalzahl, direkt mixen
+	// Meter in jedem Branch VOR dem Mix → separate Pegel für Mic und System
 	return [
 		"-f",
 		fmt,
@@ -221,7 +223,11 @@ export function buildFfmpegArgs(
 		"-i",
 		deviceInput(systemDevice),
 		"-filter_complex",
-		`amix=inputs=2:duration=first:dropout_transition=3,${meter}`,
+		`[0:a]${meter}[mic];` +
+		`[1:a]${meter}[sys];` +
+		"[mic][sys]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]",
+		"-map",
+		"[out]",
 		...commonOut,
 	];
 }

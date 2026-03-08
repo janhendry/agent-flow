@@ -40,6 +40,7 @@ export interface InteractiveTransition {
 
 export const MAIN_MENU_ITEMS = [
 	"record-and-transcribe",
+	"record-only",
 	"play-audio",
 	"transcribe-file",
 	"history",
