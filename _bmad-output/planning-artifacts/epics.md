@@ -290,7 +290,9 @@ So that ich den Voice-Flow ohne Kontextwechsel sicher steuern kann.
 **Given** ein globaler Shortcut startet den Flow
 **When** die Zustände Recording, Transcribing, Success oder Error eintreten
 **Then** zeigt das HUD den aktuellen State eindeutig und non-blocking
-**And** der Success-State wird automatisch nach kurzer Dauer ausgeblendet.
+**And** der Success-State wird automatisch nach kurzer Dauer ausgeblendet
+**And** im Dual-Modus (Mic + System) zeigt das HUD zwei getrennte Echtzeit-Pegelbalken (Mic oben, System unten) mit farblicher Differenzierung — konsistent zum bewährten Dual-Pegel-Pattern der CLI
+**And** im Single-Modus (Mic Only / System Only) zeigt das HUD einen einzelnen Pegelbalken.
 
 ### Story 3.3: Settings- und Overlay-Konfiguration für produktive UI-Nutzung implementieren
 

@@ -303,13 +303,16 @@ WhisperFlow kombiniert bekannte Patterns neu:
 
 - HUD erscheint sofort am konfigurierten Bildschirmort (konfigurierbar in Settings)
 - HUD zeigt: Recording-State-Label + Echtzeit-Audio-Pegel (Bars/Wellenform) + Timer
+- **Dual-Modus (Mic + System):** HUD zeigt zwei getrennte Pegel-Reihen übereinander — Mic oben, System unten — farblich differenziert
+- **Single-Modus (Mic Only / System Only):** HUD zeigt eine einzelne Pegel-Reihe
 - Kein Klick, kein Hover, keine Interaktion mit dem HUD während der Aufnahme
 
 **Feedback während Recording:**
 
-- Audio-Pegel-Visualisierung reagiert live auf Mikrofon/System-Audio
+- Audio-Pegel-Visualisierung reagiert live auf Mikrofon- und/oder System-Audio (je nach Profil-Modus)
+- Im Dual-Modus: Beide Pegel aktualisieren sich unabhängig mit eigenem Decay — konsistent zur CLI-Implementierung
 - Timer zeigt Aufnahmedauer
-- Visueller Unterschied: aktive Stimme vs. Stille erkennbar
+- Visueller Unterschied: aktive Stimme vs. Stille erkennbar — pro Kanal im Dual-Modus
 
 **Completion:**
 
@@ -382,7 +385,7 @@ WhisperFlow kombiniert bekannte Patterns neu:
 **HUD-Dimensionen:**
 
 - Breite: 280px (fix) — kompakt, nicht überwältigend
-- Höhe: variabel je State, ~80–96px
+- Höhe: variabel je State, ~80–96px (Single-Pegel), ~96–112px (Dual-Pegel im Both-Modus)
 - Border-radius: 12px — modern, nicht eckig
 - Shadow: `0 8px 32px rgba(0,0,0,0.4)` — hebt sich klar vom Desktop ab
 
@@ -415,18 +418,20 @@ Interaktiver HTML-Showcase: `_bmad-output/planning-artifacts/ux-design-direction
 
 Das HUD erscheint als schmale Pill-Form mit State-Differenzierung durch rein visuelle Mittel:
 
-| State        | Darstellung                                                                  |
-| ------------ | ---------------------------------------------------------------------------- |
-| Recording    | Graue Bars (`#5A5A62`), animiert nach Audio-Amplitude — kein Icon, kein Text |
-| Transcribing | Drei pulsierende Indigo-Dots — kein Spinner                                  |
-| Success      | Grüner Check-Icon, Pop-Animation, auto-dismiss nach 1,5s                     |
-| Error        | Warn-Icon + Text „Error" — einziger State mit Text                           |
+| State              | Darstellung                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Recording (Single) | Graue Bars (`#5A5A62`), animiert nach Audio-Amplitude — kein Icon, kein Text                                   |
+| Recording (Dual)   | Zwei Pegel-Reihen übereinander: Mic-Bars (`#5A5A62`) oben + Sys-Bars (`#3B82F6` blau-akzent) unten — kein Text |
+| Transcribing       | Drei pulsierende Indigo-Dots — kein Spinner                                                                    |
+| Success            | Grüner Check-Icon, Pop-Animation, auto-dismiss nach 1,5s                                                       |
+| Error              | Warn-Icon + Text „Error" — einziger State mit Text                                                             |
 
 ### Design Rationale
 
 - **Minimalste UI-Fläche**: Pill-Form stört den Arbeitsfokus am wenigsten
 - **Keine Text-Redundanz**: Bars und Icons kommunizieren den State — Text wäre überflüssig und ablenkend
 - **Grau als neutrale Pegel-Farbe**: Rot bleibt exklusiv für Fehlerzustände reserviert
+- **Dual-Pegel-Differenzierung**: Im Dual-Modus wird der System-Audio-Pegel farblich abgesetzt (`#3B82F6` blau) — konsistent mit der CLI-Implementierung (Mic = grün, Sys = cyan). Vertikale Stapelung (Mic oben, Sys unten) ermöglicht simultanes Monitoring ohne HUD-Breitenänderung
 - **Passt zur Raycast/Linear-Ästhetik**: Dezent, professionell, verschwindet nach getaner Arbeit
 - **HUD-Position**: konfigurierbar in Settings (Default: Bottom Center)
 
@@ -528,8 +533,17 @@ flowchart TD
 
 **Purpose:** Echtzeit-Pegel-Visualisierung während Recording
 **Inhalt:** 10 vertikale Bars, Höhe via Web Audio API gesteuert
-**Farbe:** `#5A5A62` (neutral grau)
+**Farbe:** `#5A5A62` (neutral grau) für Mic-Kanal
 **Fallback:** CSS-Animation wenn kein Audio-Signal
+
+#### `DualAudioLevelBars`
+
+**Purpose:** Dual-Pegel-Visualisierung für den Both-Modus (Mic + System-Audio)
+**Layout:** Zwei `AudioLevelBars`-Reihen vertikal gestapelt — Mic oben, System unten
+**Farben:** Mic = `#5A5A62` (neutral grau), System = `#3B82F6` (blau-akzent)
+**Verhalten:** Beide Kanäle aktualisieren unabhängig mit eigenem Smoothing und Decay — basierend auf dem bewährten `createDualLevelParser()`-Pattern aus der CLI (ffmpeg-stderr liefert alternierend Mic- und Sys-RMS-Werte)
+**Compact-Variante:** Im HUD-Pill-Layout bleiben die Bars schmal (Höhe ~8px pro Reihe statt ~12px), damit beide Pegel in die Pill passen
+**Fallback:** Zeigt nur Single-`AudioLevelBars` wenn Recording-Mode ≠ `both`
 
 #### `KeyboardBadge`
 
@@ -1097,15 +1111,15 @@ LLM: OFF
 
 ### Tab: Audio
 
-| Setting            | Typ                 | Detail                                                                                                                 |
-| ------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Mikrofon-Gerät     | Select              | Alle verfügbaren macOS Mic-Inputs                                                                                      |
-| System-Audio-Gerät | Select              | Immer sichtbar — **disabled** wenn aktives Profil = `Mic Only`. Zeigt BlackHole/Loopback-Devices.                      |
-| Audio testen       | Button (toggle)     | `„Test starten"` → während Test: `„Test beenden"`                                                                      |
-| ↳ Pegel-Meter      | Live-Visualisierung | Erscheint nur während Test läuft — zeigt das echte FFmpeg-Signal der aktuellen Audio-Konfiguration. 10 vertikale Bars. |
-| ↳ Kein Signal      | Inline-Hinweis      | `„Kein Signal erkannt — BlackHole konfiguriert?"` (nur wenn Meter flach bleibt)                                        |
-| ↳ Auto-Stop        | —                   | Test stoppt automatisch nach **60 Sekunden**                                                                           |
-| ↳ Playback         | —                   | Nach Test-Ende: Aufnahme einmal abspielen, dann verwerfen                                                              |
+| Setting            | Typ                 | Detail                                                                                                                                                                                                                                  |
+| ------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mikrofon-Gerät     | Select              | Alle verfügbaren macOS Mic-Inputs                                                                                                                                                                                                       |
+| System-Audio-Gerät | Select              | Immer sichtbar — **disabled** wenn aktives Profil = `Mic Only`. Zeigt BlackHole/Loopback-Devices.                                                                                                                                       |
+| Audio testen       | Button (toggle)     | `„Test starten"` → während Test: `„Test beenden"`                                                                                                                                                                                       |
+| ↳ Pegel-Meter      | Live-Visualisierung | Erscheint nur während Test läuft — zeigt das echte FFmpeg-Signal der aktuellen Audio-Konfiguration. 10 vertikale Bars. Im Dual-Profil: Zwei getrennte Meter (Mic + System), farblich differenziert — analog zur CLI-Dual-Pegel-Anzeige. |
+| ↳ Kein Signal      | Inline-Hinweis      | `„Kein Signal erkannt — BlackHole konfiguriert?"` (nur wenn Meter flach bleibt). Im Dual-Modus: pro Kanal individuell angezeigt.                                                                                                        |
+| ↳ Auto-Stop        | —                   | Test stoppt automatisch nach **60 Sekunden**                                                                                                                                                                                            |
+| ↳ Playback         | —                   | Nach Test-Ende: Aufnahme einmal abspielen, dann verwerfen                                                                                                                                                                               |
 
 **Test-Flow:**
 
