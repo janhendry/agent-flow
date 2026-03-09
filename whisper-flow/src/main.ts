@@ -2,13 +2,8 @@ import path from "node:path";
 import { app, BrowserWindow, clipboard, globalShortcut, ipcMain } from "electron";
 import started from "electron-squirrel-startup";
 import { CoreBridge } from "./core-bridge";
-import {
-	type AppStatePayload,
-	type Config,
-	IpcChannel,
-	type RecordStartRequest,
-	type TranscribeRequest,
-} from "./ipc-types";
+import { registerIpcHandlers } from "./ipc-handlers";
+import { type AppStatePayload, IpcChannel } from "./ipc-types";
 import { StateMachine } from "./state-machine";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -21,84 +16,6 @@ if (started) {
 const bridge = new CoreBridge();
 const stateMachine = new StateMachine();
 let mainWindow: BrowserWindow | null = null;
-
-// ── State → Renderer Push ──────────────────────────────────────────────
-
-function pushStateToRenderer(state: string, _previousState: string): void {
-	const payload: AppStatePayload = { state: state as AppStatePayload["state"] };
-	mainWindow?.webContents.send(IpcChannel.STATE_CHANGE, payload);
-}
-
-stateMachine.onStateChange(pushStateToRenderer);
-
-// ── Audio Level → Renderer Push ────────────────────────────────────────
-
-bridge.setAudioLevelCallback((level) => {
-	mainWindow?.webContents.send(IpcChannel.AUDIO_LEVEL, level);
-});
-
-// ── IPC Handlers ───────────────────────────────────────────────────────
-
-ipcMain.handle(IpcChannel.RECORD_START, async (_event, req: RecordStartRequest) => {
-	const result = await bridge.startRecording(req.mode);
-	if (result.ok) {
-		stateMachine.transition("recording");
-	}
-	return result;
-});
-
-ipcMain.handle(IpcChannel.RECORD_STOP, async () => {
-	const result = await bridge.stopRecording();
-	if (result.ok) {
-		stateMachine.transition("transcribing");
-	}
-	return result;
-});
-
-ipcMain.handle(IpcChannel.TRANSCRIBE, async (_event, req: TranscribeRequest) => {
-	const result = await bridge.transcribe(req.filePath, req.language);
-	if (result.ok) {
-		clipboard.writeText(result.data);
-		stateMachine.transition("success");
-		setTimeout(() => {
-			if (stateMachine.getState() === "success") {
-				stateMachine.transition("idle");
-			}
-		}, 3_000);
-	} else {
-		stateMachine.transition("error");
-		setTimeout(() => {
-			if (stateMachine.getState() === "error") {
-				stateMachine.transition("idle");
-			}
-		}, 5_000);
-	}
-	return result;
-});
-
-ipcMain.handle(IpcChannel.CONFIG_LOAD, async () => {
-	return bridge.loadConfig();
-});
-
-ipcMain.handle(IpcChannel.CONFIG_SAVE, async (_event, config: Config) => {
-	return bridge.saveConfig(config);
-});
-
-ipcMain.handle(IpcChannel.SECRET_GET_API_KEY, async () => {
-	return bridge.getApiKey();
-});
-
-ipcMain.handle(IpcChannel.SECRET_SET_API_KEY, async (_event, key: string) => {
-	return bridge.setApiKey(key);
-});
-
-ipcMain.handle(IpcChannel.DIAGNOSE_CHECK_FFMPEG, async () => {
-	return bridge.checkFfmpeg();
-});
-
-ipcMain.handle(IpcChannel.DIAGNOSE_LIST_DEVICES, async () => {
-	return bridge.listDevices();
-});
 
 // ── Global Shortcut Handler ────────────────────────────────────────────
 
@@ -196,6 +113,33 @@ const createWindow = (): void => {
 		mainWindow = null;
 	});
 };
+
+function pushStateToRenderer(state: string, _previousState: string): void {
+	const payload: AppStatePayload = { state: state as AppStatePayload["state"] };
+	mainWindow?.webContents.send(IpcChannel.STATE_CHANGE, payload);
+	mainWindow?.setIgnoreMouseEvents(state === "idle");
+}
+
+stateMachine.onStateChange(pushStateToRenderer);
+
+registerIpcHandlers({
+	ipcMain,
+	bridge,
+	stateMachine,
+	getWindowSender: () => {
+		if (!mainWindow) {
+			return undefined;
+		}
+		return {
+			send: (channel, payload) => {
+				mainWindow?.webContents.send(channel, payload);
+			},
+		};
+	},
+	writeClipboardText: (text) => {
+		clipboard.writeText(text);
+	},
+});
 
 // ── App Lifecycle ──────────────────────────────────────────────────────
 
