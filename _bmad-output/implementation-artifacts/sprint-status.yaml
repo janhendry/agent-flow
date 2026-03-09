@@ -32,6 +32,7 @@
 # - Stories can be worked in parallel if team capacity allows
 # - SM typically creates next story after previous one is 'done' to incorporate learnings
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Epic-3 policy: For stories 3.3 and 3.4, do not write new tests and do not run npm test; use typecheck, lint, verify, and package only.
 
 generated: 2026-03-01
 project: agent-flow
@@ -59,6 +60,6 @@ development_status:
   epic-3: in-progress
   3-1-electron-adapter-auf-core-use-cases-anbinden: done
   3-2-hud-overlay-mit-recording-transcribing-success-error-states-bereitstellen: done
-  3-3-settings-und-overlay-konfiguration-fuer-produktive-ui-nutzung-implementieren: backlog
+  3-3-settings-und-overlay-konfiguration-fuer-produktive-ui-nutzung-implementieren: review
   3-4-interface-paritaet-zwischen-cli-und-ui-validieren: backlog
   epic-3-retrospective: optional

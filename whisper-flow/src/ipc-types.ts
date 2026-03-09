@@ -1,4 +1,6 @@
 import type { AudioDevice, Config, RecordingMode } from "@whisper-poc/types";
+import type { AppSettings, SettingsValidationResult, ThemeMode } from "./settings";
+import type { ShortcutStatus } from "./shortcut-registry";
 
 // ── IPC Channel Names ──────────────────────────────────────────────────
 
@@ -16,6 +18,19 @@ export const IpcChannel = {
 	TRANSCRIPTION_PROGRESS: "transcription:progress",
 	STATE_CHANGE: "state:change",
 	SHORTCUT_TOGGLE: "shortcut:toggle",
+	SHORTCUTS_GET_ALL: "shortcuts:get-all",
+	SHORTCUTS_SET: "shortcuts:set",
+	SETTINGS_LOAD: "settings:load",
+	SETTINGS_SAVE: "settings:save",
+	SETTINGS_VALIDATE: "settings:validate",
+	AUDIO_TEST_START: "audio:test:start",
+	AUDIO_TEST_STOP: "audio:test:stop",
+	APP_CHECK_UPDATES: "app:check-updates",
+	SETUP_RESTART: "setup:restart",
+	SHOW_HISTORY_OVERLAY: "overlay:history:show",
+	SHOW_PROFILE_OVERLAY: "overlay:profile:show",
+	THEME_CHANGED: "theme:changed",
+	SETTINGS_COMMAND: "settings:command",
 } as const;
 
 export type IpcChannelName = (typeof IpcChannel)[keyof typeof IpcChannel];
@@ -71,6 +86,22 @@ export interface AudioLevelPayload {
 	sys: number;
 }
 
+export interface UpdateCheckResult {
+	supported: boolean;
+	message: string;
+}
+
+export type SettingsCommand = "save" | "discard";
+
+export interface ShortcutUpdateRequest {
+	shortcuts: AppSettings["shortcuts"];
+}
+
+export interface ShortcutUpdateResult {
+	shortcuts: AppSettings["shortcuts"];
+	statuses: ShortcutStatus[];
+}
+
 // ── Electron API (exposed to renderer via preload) ─────────────────────
 
 export interface ElectronAPI {
@@ -91,11 +122,36 @@ export interface ElectronAPI {
 		checkFfmpeg(): Promise<IpcResponse<boolean>>;
 		listDevices(): Promise<IpcResponse<AudioDevice[]>>;
 	};
+	settings: {
+		load(): Promise<IpcResponse<AppSettings>>;
+		save(settings: AppSettings): Promise<IpcResponse<AppSettings>>;
+		validate(settings: AppSettings): Promise<IpcResponse<SettingsValidationResult>>;
+	};
+	audioTest: {
+		start(mode: RecordingMode, autoStopSeconds: number): Promise<IpcResponse>;
+		stop(): Promise<IpcResponse>;
+	};
+	app: {
+		checkUpdates(): Promise<IpcResponse<UpdateCheckResult>>;
+		restartSetup(): Promise<IpcResponse>;
+	};
+	overlays: {
+		showHistory(): Promise<IpcResponse>;
+		showProfile(): Promise<IpcResponse>;
+	};
+	shortcuts: {
+		getAll(): Promise<IpcResponse<ShortcutStatus[]>>;
+		set(request: ShortcutUpdateRequest): Promise<IpcResponse<ShortcutUpdateResult>>;
+	};
 	onAudioLevel(callback: (level: AudioLevelPayload) => void): () => void;
 	onTranscriptionProgress(callback: (state: string) => void): () => void;
 	onStateChange(callback: (payload: AppStatePayload) => void): () => void;
+	onThemeChanged(callback: (theme: ThemeMode) => void): () => void;
+	onSettingsCommand(callback: (command: SettingsCommand) => void): () => void;
 }
 
 // ── Re-exports for convenience ─────────────────────────────────────────
 
 export type { AudioDevice, Config, RecordingMode } from "@whisper-poc/types";
+export type { AppSettings, SettingsValidationResult, ThemeMode } from "./settings";
+export type { ShortcutStatus } from "./shortcut-registry";
