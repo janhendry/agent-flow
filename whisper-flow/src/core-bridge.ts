@@ -53,7 +53,8 @@ function deriveAudioLevelFromFfmpegOutput(text: string, previousLevel = 0): numb
 }
 
 function extractAllAudioLevelsFromFfmpegOutput(text: string): number[] {
-	const pattern = /(?:RMS\s+level\s+dB\s*:|lavfi\.astats\.Overall\.RMS_level\s*=)\s*(-?\d+(?:\.\d+)?)/gi;
+	const pattern =
+		/(?:RMS\s+level\s+dB\s*:|lavfi\.astats\.Overall\.RMS_level\s*=)\s*(-?\d+(?:\.\d+)?)/gi;
 	const levels: number[] = [];
 	for (const match of text.matchAll(pattern)) {
 		const raw = match[1];
@@ -174,18 +175,10 @@ export class CoreBridge {
 					if (levelValues.length > 0) {
 						for (const level of levelValues) {
 							if (this.dualStreamNext === "mic") {
-								this.previousMicLevel = clamp(
-									Math.max(this.previousMicLevel * 0.55, level),
-									0,
-									1,
-								);
+								this.previousMicLevel = clamp(Math.max(this.previousMicLevel * 0.55, level), 0, 1);
 								this.dualStreamNext = "sys";
 							} else {
-								this.previousSysLevel = clamp(
-									Math.max(this.previousSysLevel * 0.55, level),
-									0,
-									1,
-								);
+								this.previousSysLevel = clamp(Math.max(this.previousSysLevel * 0.55, level), 0, 1);
 								this.dualStreamNext = "mic";
 							}
 						}

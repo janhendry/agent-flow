@@ -22,7 +22,11 @@ let mainWindow: BrowserWindow | null = null;
 async function handleShortcutToggle(): Promise<void> {
 	const currentState = stateMachine.getState();
 
-	if (currentState === "idle") {
+	if (currentState === "error") {
+		stateMachine.transition("idle");
+	}
+
+	if (currentState === "idle" || currentState === "error") {
 		let mode: "mic" | "system" | "both" = "mic";
 		try {
 			const configResult = await bridge.loadConfig();
@@ -62,7 +66,7 @@ async function handleShortcutToggle(): Promise<void> {
 					if (stateMachine.getState() === "success") {
 						stateMachine.transition("idle");
 					}
-				}, 3_000);
+				}, 1_500);
 			} else {
 				stateMachine.transition("error");
 				const errorPayload: AppStatePayload = {
@@ -70,11 +74,6 @@ async function handleShortcutToggle(): Promise<void> {
 					error: transcribeResult.error.message,
 				};
 				mainWindow?.webContents.send(IpcChannel.STATE_CHANGE, errorPayload);
-				setTimeout(() => {
-					if (stateMachine.getState() === "error") {
-						stateMachine.transition("idle");
-					}
-				}, 5_000);
 			}
 		} else {
 			stateMachine.transition("error");
@@ -83,11 +82,6 @@ async function handleShortcutToggle(): Promise<void> {
 				error: stopResult.error.message,
 			};
 			mainWindow?.webContents.send(IpcChannel.STATE_CHANGE, errorPayload);
-			setTimeout(() => {
-				if (stateMachine.getState() === "error") {
-					stateMachine.transition("idle");
-				}
-			}, 5_000);
 		}
 	}
 }
@@ -97,7 +91,7 @@ async function handleShortcutToggle(): Promise<void> {
 const createWindow = (): void => {
 	mainWindow = new BrowserWindow({
 		width: 280,
-		height: 96,
+		height: 112,
 		frame: false,
 		transparent: true,
 		alwaysOnTop: true,

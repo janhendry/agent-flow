@@ -1,121 +1,154 @@
-import { useEffect, useState } from "react";
-import type { AppState, AppStatePayload, AudioLevelPayload } from "../ipc-types";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  AppState,
+  AppStatePayload,
+  AudioLevelPayload,
+} from "../ipc-types";
+
+const METER_BARS = 22;
+const METER_KEYS = Array.from(
+  { length: METER_BARS },
+  (_, index) => `bar-${index}`,
+);
 
 export function App() {
-	const [appState, setAppState] = useState<AppState>("idle");
-	const [audioLevel, setAudioLevel] = useState<AudioLevelPayload>({
-		mic: 0,
-		sys: 0,
-	});
-	const [transcription, setTranscription] = useState<string | null>(null);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [appState, setAppState] = useState<AppState>("idle");
+  const [audioLevel, setAudioLevel] = useState<AudioLevelPayload>({
+    mic: 0,
+    sys: 0,
+  });
+  const [isDualMode, setIsDualMode] = useState(false);
 
-	useEffect(() => {
-		const api = (globalThis as unknown as Window).electronAPI;
-		if (!api) return;
+  useEffect(() => {
+    const api = (globalThis as unknown as Window).electronAPI;
+    if (!api) return;
 
-		const unsubState = api.onStateChange((payload: AppStatePayload) => {
-			setAppState(payload.state);
-			if (payload.transcription) {
-				setTranscription(payload.transcription);
-			}
-			if (payload.error) {
-				setErrorMessage(payload.error);
-			}
-			if (payload.state === "idle") {
-				setTranscription(null);
-				setErrorMessage(null);
-			}
-		});
+    const unsubState = api.onStateChange((payload: AppStatePayload) => {
+      setAppState(payload.state);
+      if (payload.state !== "recording") {
+        setAudioLevel({ mic: 0, sys: 0 });
+        setIsDualMode(false);
+      }
+    });
 
-		const unsubLevel = api.onAudioLevel((level: AudioLevelPayload) => {
-			setAudioLevel(level);
-		});
+    const unsubLevel = api.onAudioLevel((level: AudioLevelPayload) => {
+      setAudioLevel(level);
+      if (level.mic > 0.01 && level.sys > 0.01) {
+        setIsDualMode(true);
+      }
+    });
 
-		return () => {
-			unsubState();
-			unsubLevel();
-		};
-	}, []);
+    return () => {
+      unsubState();
+      unsubLevel();
+    };
+  }, []);
 
-	return (
-		<div style={containerStyle}>
-			<div style={pillStyle}>
-				<StateIndicator state={appState} />
-				{appState === "recording" && (
-					<span style={levelStyle}>🎙 {Math.round(audioLevel.mic * 100)}%</span>
-				)}
-				{appState === "transcribing" && <span style={textStyle}>Transkribiere…</span>}
-				{appState === "success" && transcription && <span style={textStyle}>✅ Kopiert</span>}
-				{appState === "error" && <span style={errorStyle}>❌ {errorMessage ?? "Fehler"}</span>}
-				{appState === "idle" && <span style={textStyle}>⌨ Ctrl+Shift+Space</span>}
-			</div>
-		</div>
-	);
+  const hudClassName = useMemo(() => {
+    if (appState === "recording") return "hud-pill hud-recording";
+    if (appState === "transcribing") return "hud-pill hud-transcribing";
+    if (appState === "success") return "hud-pill hud-success";
+    if (appState === "error") return "hud-pill hud-error";
+    return "hud-pill";
+  }, [appState]);
+
+  if (appState === "idle") {
+    return <div className="hud-root" aria-hidden="true" />;
+  }
+
+  return (
+    <div className="hud-root">
+      <div className={hudClassName}>
+        {appState === "recording" && (
+          <AudioMeter
+            mic={audioLevel.mic}
+            sys={audioLevel.sys}
+            dual={isDualMode}
+          />
+        )}
+        {appState === "transcribing" && <TranscribingDots />}
+        {appState === "success" && <SuccessCheck />}
+        {appState === "error" && <ErrorBadge />}
+      </div>
+    </div>
+  );
 }
 
-function StateIndicator({ state }: Readonly<{ state: AppState }>) {
-	const colors: Record<AppState, string> = {
-		idle: "#666",
-		recording: "#ff4444",
-		transcribing: "#ffaa00",
-		success: "#44cc44",
-		error: "#ff4444",
-	};
+function AudioMeter({
+  mic,
+  sys,
+  dual,
+}: Readonly<{ mic: number; sys: number; dual: boolean }>) {
+  if (dual) {
+    return (
+      <div className="meter-dual">
+        <MeterRow level={mic} tone="mic" />
+        <MeterRow level={sys} tone="sys" />
+      </div>
+    );
+  }
 
-	return (
-		<span
-			style={{
-				display: "inline-block",
-				width: 12,
-				height: 12,
-				borderRadius: "50%",
-				backgroundColor: colors[state],
-				marginRight: 8,
-				animation: state === "recording" ? "pulse 1s infinite" : undefined,
-			}}
-		/>
-	);
+  const level = mic > 0.01 ? mic : sys;
+  return (
+    <div className="meter-single">
+      <MeterRow level={level} tone="mic" />
+    </div>
+  );
 }
 
-const containerStyle: React.CSSProperties = {
-	width: "100%",
-	height: "100%",
-	display: "flex",
-	alignItems: "center",
-	justifyContent: "center",
-	background: "transparent",
-	userSelect: "none",
-};
+function MeterRow({
+  level,
+  tone,
+}: Readonly<{ level: number; tone: "mic" | "sys" }>) {
+  const activeCount = Math.max(
+    1,
+    Math.round(Math.min(1, Math.max(0, level)) * METER_BARS),
+  );
+  const rowClass =
+    tone === "mic" ? "meter-row meter-row-mic" : "meter-row meter-row-sys";
 
-const pillStyle: React.CSSProperties = {
-	display: "flex",
-	alignItems: "center",
-	padding: "8px 16px",
-	borderRadius: 48,
-	background: "rgba(30, 30, 30, 0.85)",
-	backdropFilter: "blur(10px)",
-	color: "#fff",
-	fontSize: 13,
-	fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-	gap: 4,
-};
+  return (
+    <div className={rowClass}>
+      {METER_KEYS.map((key, index) => {
+        const isActive = index < activeCount;
+        return (
+          <span
+            className={`meter-bar${isActive ? " is-active" : ""}`}
+            key={`${tone}-${key}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
-const textStyle: React.CSSProperties = {
-	opacity: 0.8,
-	fontSize: 12,
-};
+function TranscribingDots() {
+  return (
+    <div className="transcribing-dots" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </div>
+  );
+}
 
-const levelStyle: React.CSSProperties = {
-	fontVariantNumeric: "tabular-nums",
-	fontSize: 12,
-};
+function SuccessCheck() {
+  return (
+    <div className="success-mark" aria-hidden="true">
+      <svg viewBox="0 0 20 20" role="img" aria-hidden="true">
+        <path d="M4.75 10.5L8.5 14.25L15.25 6.75" />
+      </svg>
+    </div>
+  );
+}
 
-const errorStyle: React.CSSProperties = {
-	color: "#ff6666",
-	fontSize: 12,
-	maxWidth: 180,
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
-};
+function ErrorBadge() {
+  return (
+    <div className="error-copy" aria-live="polite">
+      <span className="error-icon" aria-hidden="true">
+        !
+      </span>
+      <span>Fehler. Erneut per Shortcut starten.</span>
+    </div>
+  );
+}
