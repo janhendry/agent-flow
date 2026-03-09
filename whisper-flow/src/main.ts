@@ -76,6 +76,18 @@ async function handleShortcutToggle(): Promise<void> {
 					}
 				}, 5_000);
 			}
+		} else {
+			stateMachine.transition("error");
+			const errorPayload: AppStatePayload = {
+				state: "error",
+				error: stopResult.error.message,
+			};
+			mainWindow?.webContents.send(IpcChannel.STATE_CHANGE, errorPayload);
+			setTimeout(() => {
+				if (stateMachine.getState() === "error") {
+					stateMachine.transition("idle");
+				}
+			}, 5_000);
 		}
 	}
 }

@@ -6,8 +6,8 @@ const electronAPI: ElectronAPI = {
 		start: (mode) => ipcRenderer.invoke(IpcChannel.RECORD_START, { mode }),
 		stop: () => ipcRenderer.invoke(IpcChannel.RECORD_STOP),
 	},
-	transcribe: (filePath, language) =>
-		ipcRenderer.invoke(IpcChannel.TRANSCRIBE, { filePath, language }),
+	transcribe: (filePath, options) =>
+		ipcRenderer.invoke(IpcChannel.TRANSCRIBE, { filePath, language: options?.language }),
 	config: {
 		load: () => ipcRenderer.invoke(IpcChannel.CONFIG_LOAD),
 		save: (config) => ipcRenderer.invoke(IpcChannel.CONFIG_SAVE, config),

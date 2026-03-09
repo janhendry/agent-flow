@@ -52,6 +52,20 @@ function deriveAudioLevelFromFfmpegOutput(text: string, previousLevel = 0): numb
 	return previousLevel;
 }
 
+function extractAllAudioLevelsFromFfmpegOutput(text: string): number[] {
+	const pattern = /(?:RMS\s+level\s+dB\s*:|lavfi\.astats\.Overall\.RMS_level\s*=)\s*(-?\d+(?:\.\d+)?)/gi;
+	const levels: number[] = [];
+	for (const match of text.matchAll(pattern)) {
+		const raw = match[1];
+		const db = Number.parseFloat(raw);
+		if (Number.isNaN(db) || !Number.isFinite(db)) {
+			continue;
+		}
+		levels.push(clamp((db + 60) / 60, 0, 1));
+	}
+	return levels;
+}
+
 type BridgeDeps = {
 	createSecretStore: () => SecretStorePort;
 	listAudioDevices: typeof listAudioDevices;
@@ -95,6 +109,9 @@ export class CoreBridge {
 	private outputFilePath: string | null = null;
 	private audioLevelCallback: AudioLevelCallback | null = null;
 	private previousMicLevel = 0;
+	private previousSysLevel = 0;
+	private currentRecordingMode: RecordingMode = "mic";
+	private dualStreamNext: "mic" | "sys" = "mic";
 	private readonly secretStore: SecretStorePort;
 	private readonly deps: BridgeDeps;
 
@@ -115,6 +132,8 @@ export class CoreBridge {
 		}
 
 		try {
+			this.currentRecordingMode = mode;
+			this.dualStreamNext = "mic";
 			const devices = await this.deps.listAudioDevices();
 			if (devices.length === 0) {
 				return fail("NO_DEVICES", "Keine Audio-Eingabegeräte gefunden.");
@@ -144,13 +163,44 @@ export class CoreBridge {
 
 			this.recordingProcess = this.deps.startRecording(ffmpegArgs);
 			this.previousMicLevel = 0;
+			this.previousSysLevel = 0;
 
 			// Parse audio levels from ffmpeg stderr
 			this.recordingProcess.stderr?.on("data", (chunk: Buffer) => {
 				const text = chunk.toString();
+
+				if (this.currentRecordingMode === "both") {
+					const levelValues = extractAllAudioLevelsFromFfmpegOutput(text);
+					if (levelValues.length > 0) {
+						for (const level of levelValues) {
+							if (this.dualStreamNext === "mic") {
+								this.previousMicLevel = clamp(
+									Math.max(this.previousMicLevel * 0.55, level),
+									0,
+									1,
+								);
+								this.dualStreamNext = "sys";
+							} else {
+								this.previousSysLevel = clamp(
+									Math.max(this.previousSysLevel * 0.55, level),
+									0,
+									1,
+								);
+								this.dualStreamNext = "mic";
+							}
+						}
+						this.audioLevelCallback?.({
+							mic: this.previousMicLevel,
+							sys: this.previousSysLevel,
+						});
+						return;
+					}
+				}
+
 				const level = deriveAudioLevelFromFfmpegOutput(text, this.previousMicLevel);
 				this.previousMicLevel = level;
-				this.audioLevelCallback?.({ mic: level, sys: 0 });
+				const sysLevel = this.currentRecordingMode === "system" ? level : 0;
+				this.audioLevelCallback?.({ mic: level, sys: sysLevel });
 			});
 
 			return ok(undefined);

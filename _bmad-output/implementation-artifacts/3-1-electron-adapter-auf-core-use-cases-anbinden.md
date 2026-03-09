@@ -1,6 +1,6 @@
 # Story 3.1: Electron-Adapter auf Core-Use-Cases anbinden
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -228,6 +228,8 @@ GPT-5.3-Codex (GitHub Copilot)
 - Unit-Tests hinzugefügt: `core-bridge.test.ts` und `ipc-handlers.test.ts`.
 - Qualitätsgates grün: `npm run typecheck`, `npm run test`, `npm run verify`, `npm run package`.
 - Manueller Smoke-Test dokumentiert: App-Start erfolgreich, Shortcut-Flow bis App-Livepfad validiert.
+- Review-Fixes eingearbeitet: Dual-Audio-Level-Weitergabe verbessert (Mic+System), Fehlerpfad fuer `record:stop` im Shortcut-Flow ergänzt.
+- IPC-Contract auf `transcribe(filePath, options?)` harmonisiert (Preload + Typen).
 
 ### File List
 
@@ -236,6 +238,8 @@ GPT-5.3-Codex (GitHub Copilot)
 - whisper-flow/src/core-bridge.ts
 - whisper-flow/src/ipc-handlers.ts
 - whisper-flow/src/main.ts
+- whisper-flow/src/preload.ts
+- whisper-flow/src/ipc-types.ts
 - whisper-flow/src/core-bridge.test.ts
 - whisper-flow/src/ipc-handlers.test.ts
 - whisper-flow/src/components/App.tsx
@@ -243,3 +247,22 @@ GPT-5.3-Codex (GitHub Copilot)
 ### Change Log
 
 - 2026-03-09: Story 3.1 technisch abgeschlossen, Unit-Tests für Bridge/IPC ergänzt, IPC-Handler modularisiert, Click-Through im Idle-State ergänzt und Story auf `review` gesetzt.
+- 2026-03-09: Senior-Code-Review durchgeführt; funktionale Fixes für Dual-Level-Audio, Stop-Error-Handling und Transcribe-API-Contract umgesetzt; Story temporär auf `in-progress` gesetzt.
+- 2026-03-09: Story auf Wunsch abgeschlossen und auf `done` gesetzt; Sprint-Status synchronisiert.
+
+## Senior Developer Review (AI)
+
+### Ergebnis
+
+- Approved
+
+### Befunde (konsolidiert)
+
+- Behoben: Audio-Level-Events lieferten im Dual-Modus kein separates System-Level.
+- Behoben: Shortcut-Stop-Fehlerpfad hatte kein Error-Feedback und keinen Reset.
+- Behoben: Preload-Transcribe-Signatur wich vom Story-Contract (`options`) ab.
+- Restliche Testvertiefung als nicht-blockierend bewertet.
+
+### Hinweise zur Git-Sicht
+
+- Story-`File List` dokumentiert implementierte Dateien auf Story-Ebene; ein sauberer Working Tree ist möglich, wenn diese Änderungen bereits committed wurden.

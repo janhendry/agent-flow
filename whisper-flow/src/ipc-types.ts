@@ -60,6 +60,10 @@ export interface TranscribeRequest {
 	language?: string;
 }
 
+export interface TranscribeOptions {
+	language?: string;
+}
+
 // ── Audio Level Event ──────────────────────────────────────────────────
 
 export interface AudioLevelPayload {
@@ -74,7 +78,7 @@ export interface ElectronAPI {
 		start(mode: RecordingMode): Promise<IpcResponse>;
 		stop(): Promise<IpcResponse<string>>;
 	};
-	transcribe(filePath: string, language?: string): Promise<IpcResponse<string>>;
+	transcribe(filePath: string, options?: TranscribeOptions): Promise<IpcResponse<string>>;
 	config: {
 		load(): Promise<IpcResponse<Config>>;
 		save(config: Config): Promise<IpcResponse>;
